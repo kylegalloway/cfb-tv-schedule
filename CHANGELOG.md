@@ -15,3 +15,4 @@ All notable changes to this project will be documented in this file.
 - Test suite covering parsing fixtures, fallback logic, cross-checking,
   and an opt-in live canary suite against the real sites.
 - Dockerfile for containerized deployment.
+- Apache License 2.0.
