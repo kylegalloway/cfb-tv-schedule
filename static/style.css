@@ -33,6 +33,12 @@ body {
   padding: 1.5rem;
 }
 
+@media (min-width: 700px) {
+  body {
+    max-width: min(1600px, 95vw);
+  }
+}
+
 header {
   display: flex;
   align-items: baseline;
@@ -170,7 +176,8 @@ button:disabled {
 
 .dropdown-actions {
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);

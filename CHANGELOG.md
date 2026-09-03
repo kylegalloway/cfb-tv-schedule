@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 
 - Dark mode toggle for the dashboard, with the choice remembered in
   `localStorage`.
+- Network filter presets ("National only", "OTA only") so you don't have
+  to hand-pick 40 regional sports networks just to find the ABC games.
+  OTA is now the default filter on page load.
 - Initial scraper for fbschedules.com and NCAA.com college football TV
   schedules, with cross-checking between the two sources and a fallback
   path when one source is degraded.
