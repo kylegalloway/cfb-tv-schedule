@@ -1,12 +1,29 @@
 :root {
-  color-scheme: light dark;
-  /* Derived from canvastext so borders/stripes stay visible in both light
-     and dark automatically, without separate theme blocks. */
-  --border: color-mix(in srgb, canvastext 30%, transparent);
-  --border-strong: color-mix(in srgb, canvastext 55%, transparent);
-  --bg-alt: color-mix(in srgb, canvastext 10%, transparent);
-  --stripe: color-mix(in srgb, canvastext 5%, transparent);
-  --stripe-strong: color-mix(in srgb, canvastext 8%, transparent);
+  color-scheme: light;
+  --bg: #f3f4f6;
+  --fg: #16181d;
+  --border: color-mix(in srgb, var(--fg) 30%, transparent);
+  --border-strong: color-mix(in srgb, var(--fg) 55%, transparent);
+  --bg-alt: color-mix(in srgb, var(--fg) 10%, transparent);
+  --stripe: color-mix(in srgb, var(--fg) 5%, transparent);
+  --stripe-strong: color-mix(in srgb, var(--fg) 8%, transparent);
+  /* Panels/chips: intentionally distinct from --bg so they read as filled
+     surfaces rather than blending into the page. */
+  --surface: #ffffff;
+  --chip-bg: #545862;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #17181c;
+  --fg: #eceef1;
+  --surface: #232529;
+  --chip-bg: #e4e6ea;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
 }
 
 body {
@@ -36,6 +53,59 @@ h1 {
   gap: 0.75rem;
   font-size: 0.85rem;
   opacity: 0.8;
+}
+
+.theme-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.theme-switch-text {
+  white-space: nowrap;
+}
+
+.theme-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.theme-switch-track {
+  position: relative;
+  width: 2.2rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border-strong);
+  transition: background 0.15s ease;
+}
+
+.theme-switch-track::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: calc(1.25rem - 4px);
+  height: calc(1.25rem - 4px);
+  border-radius: 50%;
+  background: var(--fg);
+  transition: transform 0.15s ease;
+}
+
+.theme-switch input:checked + .theme-switch-track {
+  background: var(--border-strong);
+}
+
+.theme-switch input:checked + .theme-switch-track::before {
+  transform: translateX(0.95rem);
+}
+
+.theme-switch input:focus-visible + .theme-switch-track {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
 }
 
 button {
@@ -87,7 +157,7 @@ button:disabled {
   z-index: 10;
   top: calc(100% + 0.3rem);
   left: 0;
-  background: canvas;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem;
@@ -198,6 +268,10 @@ th:hover {
   object-fit: contain;
   vertical-align: middle;
   margin: 0 0.35rem;
+  background: var(--chip-bg);
+  border-radius: 50%;
+  padding: 3px;
+  box-shadow: 0 0 0 1px var(--border-strong);
 }
 
 .matchup-cell {
@@ -290,7 +364,7 @@ th.guide-channel-head {
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: canvas;
+  background: var(--surface);
 }
 
 .guide-game + .guide-game {

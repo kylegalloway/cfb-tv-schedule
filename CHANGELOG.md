@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Dark mode toggle for the dashboard, with the choice remembered in
+  `localStorage`.
 - Initial scraper for fbschedules.com and NCAA.com college football TV
   schedules, with cross-checking between the two sources and a fallback
   path when one source is degraded.
