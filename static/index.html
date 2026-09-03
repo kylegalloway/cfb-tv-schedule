@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CFB TV Schedule</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>College Football TV Schedule</h1>
+    <div class="meta">
+      <span id="updated-at">Loading…</span>
+      <button id="refresh-btn" type="button">Refresh now</button>
+    </div>
+  </header>
+
+  <div id="degraded-banner" class="banner hidden">
+    Primary source (fbschedules.com) is unavailable — showing partial data
+    from the NCAA.com fallback (mainly opening weeks and bowl season).
+  </div>
+
+  <section class="controls">
+    <label>
+      Week
+      <select id="week-filter"><option value="">All weeks</option></select>
+    </label>
+    <label>
+      Team search
+      <input id="team-search" type="text" placeholder="e.g. Michigan" />
+    </label>
+    <div class="dropdown" id="network-filter">
+      <button type="button" id="network-dropdown-btn" class="dropdown-btn">
+        Networks <span id="network-summary">(all)</span> <span class="caret">&#9662;</span>
+      </button>
+      <div id="network-dropdown-panel" class="dropdown-panel hidden">
+        <div class="dropdown-actions">
+          <button type="button" id="network-select-all">Select all</button>
+          <button type="button" id="network-select-none">Select none</button>
+        </div>
+        <div id="network-checkboxes"></div>
+      </div>
+    </div>
+
+    <div class="view-toggle" role="tablist">
+      <button type="button" id="view-list-btn" class="view-btn active" data-view="list">List</button>
+      <button type="button" id="view-guide-btn" class="view-btn" data-view="guide">TV Guide</button>
+    </div>
+  </section>
+
+  <section id="list-view">
+    <table id="games-table">
+      <thead>
+        <tr>
+          <th data-sort="week_label">Week</th>
+          <th data-sort="date">Date</th>
+          <th data-sort="time">Time (ET)</th>
+          <th data-sort="matchup">Matchup</th>
+          <th data-sort="network">Network</th>
+        </tr>
+      </thead>
+      <tbody id="games-body"></tbody>
+    </table>
+    <p id="empty-state" class="hidden">No games match the current filters.</p>
+  </section>
+
+  <section id="guide-view" class="hidden">
+    <p id="guide-hint" class="hint">Pick a specific week above to see the TV guide (too many games to grid across the whole season at once).</p>
+    <div id="guide-days"></div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
