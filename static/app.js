@@ -296,10 +296,17 @@
   async function refresh() {
     refreshBtn.disabled = true;
     refreshBtn.textContent = "Refreshing…";
+    // The primary source is usually fast, but when it's blocked the server
+    // falls back to driving a real browser to get past it, which can take
+    // a couple of minutes — let the user know this isn't stuck.
+    const slowNoticeTimer = setTimeout(() => {
+      refreshBtn.textContent = "Still refreshing… (primary source is blocked, retrying with a slower method — can take a couple minutes)";
+    }, 8000);
     try {
       const resp = await fetch("/api/refresh", { method: "POST" });
       setData(await resp.json());
     } finally {
+      clearTimeout(slowNoticeTimer);
       refreshBtn.disabled = false;
       refreshBtn.textContent = "Refresh now";
     }
