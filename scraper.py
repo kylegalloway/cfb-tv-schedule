@@ -11,6 +11,10 @@ the "Buy Tickets" affiliate links entirely.
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -24,6 +28,15 @@ from networks import split_networks
 SCHEDULE_URL = "https://fbschedules.com/college-football-tv-schedule/"
 AJAX_URL = "https://fbschedules.com/wp-admin/admin-ajax.php"
 DATA_PATH = Path(__file__).parent / "data" / "games.json"
+MANUAL_DIR = Path(__file__).parent / "data" / "manual"
+
+# Sibling local project that drives a real browser engine (camoufox/patchright)
+# to pass fbschedules.com's Cloudflare challenge when plain HTTP requests get
+# blocked. See ../stealth-fetcher/README.md and ./fetch_fbschedules.py (the
+# site-specific fetch definition stealth-fetcher runs).
+STEALTH_FETCHER_DIR = Path(os.environ.get("STEALTH_FETCHER_DIR", Path(__file__).parent.parent / "stealth-fetcher"))
+FETCH_SCRIPT_PATH = Path(__file__).parent / "fetch_fbschedules.py"
+STEALTH_FETCHER_TIMEOUT_SECONDS = 300
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -269,18 +282,123 @@ def _scrape_fbschedules() -> list[Game]:
     return all_games
 
 
-def scrape_all() -> dict:
-    """Scrapes fbschedules.com (primary, full-season). If it fails entirely
-    (site down, or its markup has changed enough that parsing yields nothing),
-    falls back to the NCAA.com TV schedule preview article (partial — mainly
-    opening weeks + bowl season), and marks the result as degraded so the UI
-    can say so."""
-    degraded = False
-    source = "fbschedules"
+def _scrape_via_stealth_fetcher() -> list[Game]:
+    """Falls back to a real browser (via the sibling stealth-fetcher project)
+    when fbschedules.com blocks plain HTTP requests with a Cloudflare
+    challenge. Runs fetch_fbschedules.py's `run()` in stealth-fetcher's own
+    environment, writing week fragments to a temp dir, then parses them the
+    same way a manual download would be."""
+    if not STEALTH_FETCHER_DIR.exists():
+        raise RuntimeError(f"stealth-fetcher not found at {STEALTH_FETCHER_DIR}")
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="fbschedules_stealth_"))
     try:
-        all_games = _scrape_fbschedules()
-    except Exception as exc:  # noqa: BLE001
-        print(f"warning: fbschedules.com scrape failed ({exc}), falling back to ncaa.com")
+        result = subprocess.run(
+            ["uv", "run", "stealth-fetcher", "run", str(FETCH_SCRIPT_PATH), "--", "-o", str(tmp_dir)],
+            cwd=STEALTH_FETCHER_DIR,
+            capture_output=True,
+            text=True,
+            timeout=STEALTH_FETCHER_TIMEOUT_SECONDS,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"stealth-fetcher exited {result.returncode}: {result.stderr.strip()[-500:]}")
+        return scrape_from_manual_dir(tmp_dir)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def _week_number_from_filename(path: Path) -> int:
+    return int("".join(c for c in path.stem if c.isdigit()))
+
+
+def scrape_from_manual_dir(manual_dir: Path = MANUAL_DIR) -> list[Game]:
+    """Parses `admin-ajax.php` JSON responses saved by hand (e.g. via a
+    browser that can pass fbschedules.com's Cloudflare challenge) instead of
+    fetching them over the network. Expects one file per week, named
+    `week<N>.php`, each containing the same `{"html": "..."}` payload the
+    live AJAX endpoint returns."""
+    files = sorted(manual_dir.glob("week*.php"), key=_week_number_from_filename)
+    if not files:
+        raise RuntimeError(f"no week files found in {manual_dir}")
+
+    all_games: list[Game] = []
+    for f in files:
+        n = _week_number_from_filename(f)
+        week_label = f"Week {n}"
+        week_value = f"week-{n}"
+        payload = json.loads(f.read_text())
+        all_games.extend(parse_week_response(payload.get("html", ""), week_label, week_value))
+    return all_games
+
+
+def scrape_all_from_manual(manual_dir: Path = MANUAL_DIR) -> dict:
+    """Same output shape as scrape_all(), but sourced from manually saved
+    week fragments rather than the network. Not degraded — this is full,
+    real fbschedules.com data, just fetched by hand."""
+    all_games = scrape_from_manual_dir(manual_dir)
+    for i, g in enumerate(all_games):
+        g.order_index = i
+
+    weeks = list(dict.fromkeys(g.week_label for g in all_games if g.week_label))
+    data = {
+        "scraped_at": datetime.now(timezone.utc).isoformat(),
+        "weeks": weeks,
+        "games": [asdict(g) for g in all_games],
+        "source": "fbschedules_manual",
+        "degraded": False,
+    }
+
+    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DATA_PATH.write_text(json.dumps(data, indent=2))
+    return data
+
+
+def _load_last_known_good() -> dict | None:
+    """Returns the last cached scrape result, if any exist and it has games."""
+    if not DATA_PATH.exists():
+        return None
+    data = json.loads(DATA_PATH.read_text())
+    if not data.get("games"):
+        return None
+    return data
+
+
+def scrape_all() -> dict:
+    """Scrapes fbschedules.com (primary, full-season) over plain HTTP. If
+    that's blocked (e.g. by a Cloudflare bot-challenge), retries through
+    stealth-fetcher, which drives a real browser engine that can pass it. If
+    both fail (site down, or its markup has changed enough that parsing
+    yields nothing), reuses the last successfully cached scrape (if one
+    exists) rather than serving anything new, so stale-but-complete data
+    beats fresh-but-partial data. Only when no cached data exists at all does
+    it fall back to the NCAA.com TV schedule preview article (partial —
+    mainly opening weeks + bowl season). Either fallback marks the result as
+    degraded so the UI can say so."""
+    all_games = None
+    source = None
+    for attempt_source, fetch in (
+        ("fbschedules", _scrape_fbschedules),
+        ("fbschedules_stealth", _scrape_via_stealth_fetcher),
+    ):
+        try:
+            all_games = fetch()
+            source = attempt_source
+            break
+        except Exception as exc:  # noqa: BLE001
+            print(f"warning: {attempt_source} scrape failed ({exc})")
+
+    if all_games is not None:
+        degraded = False
+    else:
+        cached = _load_last_known_good()
+        if cached is not None:
+            print(f"reusing last known good data from {cached.get('scraped_at')} (source={cached.get('source')})")
+            cached["degraded"] = True
+            DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+            DATA_PATH.write_text(json.dumps(cached, indent=2))
+            return cached
+
+        print("no cached data available, falling back to ncaa.com")
         import ncaa_scraper
 
         all_games = ncaa_scraper.scrape()
@@ -306,6 +424,11 @@ def scrape_all() -> dict:
 
 
 if __name__ == "__main__":
-    result = scrape_all()
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "manual":
+        result = scrape_all_from_manual()
+    else:
+        result = scrape_all()
     print(f"scraped {len(result['games'])} games across {len(result['weeks'])} weeks")
     print(f"wrote {DATA_PATH}")

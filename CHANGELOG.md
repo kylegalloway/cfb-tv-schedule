@@ -6,6 +6,28 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Multi-tier fallback for fbschedules.com scrapes: when plain HTTP requests
+  get blocked by Cloudflare's bot challenge (as they now do), retries via
+  the sibling `stealth-fetcher` project, which drives a real browser engine
+  (camoufox/patchright) that can pass it. If that also fails, reuses the
+  last successfully cached scrape instead of degrading straight to the
+  partial NCAA.com source, so stale-but-complete data beats fresh-but-partial
+  data.
+- `scraper.py manual` / `scrape_all_from_manual()` — imports a season's worth
+  of manually- or `stealth-fetcher`-saved `admin-ajax.php` fragments from
+  `data/manual/` instead of scraping over the network.
+- `fetch_fbschedules.py` — the site-specific fetch definition (`stealth-fetcher`
+  run script) for pulling fbschedules.com's week list and AJAX schedule
+  fragments through a browser session that can pass its Cloudflare challenge.
+- Persistent team logo cache (`data/team_logos.json`): a team's logo doesn't
+  change during a season, so once seen it's kept and used to backfill any
+  scrape (including the NCAA.com fallback, which never has logos of its own).
+- "Still refreshing…" notice on the dashboard's refresh button after 8
+  seconds, since a Cloudflare-blocked refresh now falls back to a slower
+  browser-driven fetch that can take a couple of minutes.
+- Background auto-refresh interval default lowered from 6 hours to 72
+  (`REFRESH_INTERVAL_HOURS`), since the schedule doesn't change that often
+  and each refresh is now more expensive when the primary source is blocked.
 - Dark mode toggle for the dashboard, with the choice remembered in
   `localStorage`.
 - Network filter presets ("National only", "OTA only") so you don't have

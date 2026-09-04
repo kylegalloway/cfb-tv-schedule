@@ -21,7 +21,7 @@ uv run scraper.py
 
 # run the web app — serves the dashboard + /api/games + /api/refresh,
 # and starts a background timer that re-scrapes every REFRESH_INTERVAL_HOURS
-# (default 6). Defaults to http://localhost:8100
+# (default 72). Defaults to http://localhost:8100
 uv run app.py
 ```
 
@@ -66,7 +66,7 @@ docker run -p 8100:8100 -v "$(pwd)/data:/app/data" cfb-tv-schedule
 | Env var                  | Default | Purpose                                   |
 |---------------------------|---------|--------------------------------------------|
 | `PORT`                    | `8100`  | Port the Flask app listens on              |
-| `REFRESH_INTERVAL_HOURS`  | `6`     | Background auto-refresh interval           |
+| `REFRESH_INTERVAL_HOURS`  | `72`    | Background auto-refresh interval           |
 
 ## Deployment
 

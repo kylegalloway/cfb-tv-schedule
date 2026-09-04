@@ -20,7 +20,7 @@ import scraper
 app = Flask(__name__, static_folder="static", static_url_path="")
 scrape_lock = threading.Lock()
 
-REFRESH_INTERVAL_HOURS = float(os.environ.get("REFRESH_INTERVAL_HOURS", "6"))
+REFRESH_INTERVAL_HOURS = float(os.environ.get("REFRESH_INTERVAL_HOURS", "72"))
 PORT = int(os.environ.get("PORT", "8100"))
 
 
