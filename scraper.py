@@ -30,6 +30,15 @@ AJAX_URL = "https://fbschedules.com/wp-admin/admin-ajax.php"
 DATA_PATH = Path(__file__).parent / "data" / "games.json"
 MANUAL_DIR = Path(__file__).parent / "data" / "manual"
 
+# Team logos come from fbschedules.com's mobile-card fragment, which only
+# lists the teams playing that particular week — so some weeks are missing
+# some teams' logos. But a team's logo URL doesn't change during a season,
+# so once we've seen it, keep it: this cache accumulates team_name -> logo
+# URL across every scrape and backfills any game missing one, and outlives
+# any single week's response (or the NCAA.com fallback, which has no logos
+# at all).
+LOGO_CACHE_PATH = Path(__file__).parent / "data" / "team_logos.json"
+
 # Sibling local project that drives a real browser engine (camoufox/patchright)
 # to pass fbschedules.com's Cloudflare challenge when plain HTTP requests get
 # blocked. See ../stealth-fetcher/README.md and ./fetch_fbschedules.py (the
@@ -336,6 +345,7 @@ def scrape_all_from_manual(manual_dir: Path = MANUAL_DIR) -> dict:
     week fragments rather than the network. Not degraded — this is full,
     real fbschedules.com data, just fetched by hand."""
     all_games = scrape_from_manual_dir(manual_dir)
+    _apply_logo_cache(all_games)
     for i, g in enumerate(all_games):
         g.order_index = i
 
@@ -351,6 +361,33 @@ def scrape_all_from_manual(manual_dir: Path = MANUAL_DIR) -> dict:
     DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
     DATA_PATH.write_text(json.dumps(data, indent=2))
     return data
+
+
+def _apply_logo_cache(all_games: list[Game]) -> None:
+    """Backfills any game missing a logo from LOGO_CACHE_PATH, and records
+    any newly-seen logos back into it (persists to disk if anything changed)."""
+    cache: dict[str, str] = {}
+    if LOGO_CACHE_PATH.exists():
+        cache = json.loads(LOGO_CACHE_PATH.read_text())
+
+    changed = False
+    for g in all_games:
+        if g.away_logo and cache.get(g.away_team) != g.away_logo:
+            cache[g.away_team] = g.away_logo
+            changed = True
+        if g.home_logo and cache.get(g.home_team) != g.home_logo:
+            cache[g.home_team] = g.home_logo
+            changed = True
+
+    for g in all_games:
+        if not g.away_logo:
+            g.away_logo = cache.get(g.away_team)
+        if not g.home_logo:
+            g.home_logo = cache.get(g.home_team)
+
+    if changed:
+        LOGO_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LOGO_CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True))
 
 
 def _load_last_known_good() -> dict | None:
@@ -404,6 +441,8 @@ def scrape_all() -> dict:
         all_games = ncaa_scraper.scrape()
         degraded = True
         source = "ncaa_fallback"
+
+    _apply_logo_cache(all_games)
 
     for i, g in enumerate(all_games):
         g.order_index = i
