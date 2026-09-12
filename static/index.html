@@ -12,6 +12,16 @@
     <div class="meta">
       <span id="updated-at">Loading…</span>
       <button id="refresh-btn" type="button">Refresh now</button>
+      <label class="timezone-picker">
+        <span class="theme-switch-text">Time zone</span>
+        <select id="timezone-select">
+          <option value="auto">Auto-detect</option>
+          <option value="America/New_York">Eastern</option>
+          <option value="America/Chicago">Central</option>
+          <option value="America/Denver">Mountain</option>
+          <option value="America/Los_Angeles">Pacific</option>
+        </select>
+      </label>
       <label class="theme-switch">
         <span class="theme-switch-text">Dark mode</span>
         <input type="checkbox" id="theme-toggle-input" />
@@ -61,7 +71,7 @@
         <tr>
           <th data-sort="week_label">Week</th>
           <th data-sort="date">Date</th>
-          <th data-sort="time">Time (ET)</th>
+          <th data-sort="time" id="time-col-header">Time (ET)</th>
           <th data-sort="matchup">Matchup</th>
           <th data-sort="network">Network</th>
         </tr>

@@ -15,6 +15,127 @@
     applyTheme(next);
   });
 
+  // Scraped times are wall-clock US Eastern. This picker lets the viewer
+  // see them converted to their own zone; conversion is DST-aware (uses
+  // the actual offset for each game's date, not a fixed ET/CT-style delta).
+  const SOURCE_ZONE = "America/New_York";
+  const TZ_KEY = "cfb-tv-schedule-timezone";
+  const timezoneSelect = document.getElementById("timezone-select");
+  const timeColHeader = document.getElementById("time-col-header");
+  let scheduleYear = new Date().getFullYear();
+
+  function resolveZone() {
+    if (timezoneSelect.value === "auto") {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || SOURCE_ZONE;
+      } catch {
+        return SOURCE_ZONE;
+      }
+    }
+    return timezoneSelect.value;
+  }
+
+  function zoneAbbrev(zone, atDate) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: zone,
+        timeZoneName: "short",
+      }).formatToParts(atDate);
+      return parts.find((p) => p.type === "timeZoneName")?.value || zone;
+    } catch {
+      return zone;
+    }
+  }
+
+  // Wall-clock time in `zone` for the UTC instant `date`, as {y,m,d,h,min}.
+  function wallClockIn(date, zone) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(date);
+    const map = {};
+    for (const p of parts) map[p.type] = p.value;
+    return {
+      y: Number(map.year),
+      m: Number(map.month),
+      d: Number(map.day),
+      h: Number(map.hour),
+      min: Number(map.minute),
+    };
+  }
+
+  // Find the UTC instant whose wall-clock time in `zone` matches
+  // y/m/d/h/min. Handles EDT/EST (and any other zone's DST) correctly.
+  function zonedWallClockToUTC(y, m, d, h, min, zone) {
+    const target = Date.UTC(y, m - 1, d, h, min);
+    let guess = target;
+    for (let i = 0; i < 2; i++) {
+      const wall = wallClockIn(new Date(guess), zone);
+      const wallAsUTC = Date.UTC(wall.y, wall.m - 1, wall.d, wall.h, wall.min);
+      guess -= wallAsUTC - target;
+    }
+    return guess;
+  }
+
+  const MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+
+  function parseGameDateTime(g) {
+    // date: "Thursday, August 27"; time: "6:00pm" or "TBD"/"" etc.
+    const dateMatch = /,\s*([A-Za-z]+)\s+(\d{1,2})\s*$/.exec((g.date || "").trim());
+    const timeMatch = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec((g.time || "").trim());
+    if (!dateMatch || !timeMatch) return null;
+    const month = MONTHS.indexOf(dateMatch[1]);
+    if (month === -1) return null;
+    const day = parseInt(dateMatch[2], 10);
+    let hours = parseInt(timeMatch[1], 10) % 12;
+    if (timeMatch[3].toLowerCase() === "pm") hours += 12;
+    const minutes = parseInt(timeMatch[2], 10);
+    return { month, day, hours, minutes };
+  }
+
+  // Returns display strings for a game's date/time converted into the
+  // currently selected zone. Falls back to the raw values (e.g. "TBD").
+  function convertGameDateTime(g, zone) {
+    const parsed = parseGameDateTime(g);
+    if (!parsed) return { date: g.date, time: g.time };
+
+    const utcMs = zonedWallClockToUTC(
+      scheduleYear, parsed.month + 1, parsed.day, parsed.hours, parsed.minutes, SOURCE_ZONE
+    );
+    const wall = wallClockIn(new Date(utcMs), zone);
+    const weekday = new Intl.DateTimeFormat("en-US", { timeZone: zone, weekday: "long" })
+      .format(new Date(utcMs));
+
+    let displayHours = wall.h % 12;
+    if (displayHours === 0) displayHours = 12;
+    const ampm = wall.h < 12 ? "am" : "pm";
+    const time = `${displayHours}:${String(wall.min).padStart(2, "0")}${ampm}`;
+    const date = `${weekday}, ${MONTHS[wall.m - 1]} ${wall.d}`;
+    return { date, time };
+  }
+
+  function updateTimeColumnHeader() {
+    const zone = resolveZone();
+    timeColHeader.textContent = `Time (${zoneAbbrev(zone, new Date())})`;
+  }
+
+  timezoneSelect.value = localStorage.getItem(TZ_KEY) || "auto";
+  updateTimeColumnHeader();
+
+  timezoneSelect.addEventListener("change", () => {
+    localStorage.setItem(TZ_KEY, timezoneSelect.value);
+    updateTimeColumnHeader();
+    render();
+  });
+
   let games = [];
   let sortKey = "order_index";
   let sortDir = 1;
@@ -124,12 +245,13 @@
 
   function renderList() {
     let rows = getFilteredGames();
+    const zone = resolveZone();
 
     rows = rows.slice().sort((a, b) => {
       let av, bv;
       if (sortKey === "time") {
-        av = timeToMinutes(a.time);
-        bv = timeToMinutes(b.time);
+        av = timeToMinutes(convertGameDateTime(a, zone).time);
+        bv = timeToMinutes(convertGameDateTime(b, zone).time);
       } else if (sortKey === "matchup") {
         av = matchupText(a);
         bv = matchupText(b);
@@ -144,11 +266,12 @@
 
     tbody.innerHTML = "";
     for (const g of rows) {
+      const { date, time } = convertGameDateTime(g, zone);
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${g.week_label}</td>
-        <td>${g.date}</td>
-        <td>${g.time}</td>
+        <td>${date}</td>
+        <td>${time}</td>
         <td class="matchup-cell">${matchupHTML(g)}</td>
         <td>${g.network}</td>
       `;
@@ -160,6 +283,7 @@
 
   function renderGuide() {
     const rows = getFilteredGames();
+    const zone = resolveZone();
     guideDays.innerHTML = "";
 
     if (!weekFilter.value) {
@@ -168,16 +292,19 @@
     }
     guideHint.classList.add("hidden");
 
-    // Group by date, preserving the order dates first appear in (already
-    // chronological, since `games` comes off the wire in scrape order).
+    // Group by (converted) date, preserving the order dates first appear in
+    // (already chronological, since `games` comes off the wire in scrape order).
     const byDate = new Map();
+    const displayCache = new Map();
     for (const g of rows) {
-      if (!byDate.has(g.date)) byDate.set(g.date, []);
-      byDate.get(g.date).push(g);
+      const display = convertGameDateTime(g, zone);
+      displayCache.set(g, display);
+      if (!byDate.has(display.date)) byDate.set(display.date, []);
+      byDate.get(display.date).push(g);
     }
 
     for (const [date, dayGames] of byDate) {
-      const times = [...new Set(dayGames.map((g) => g.time))].sort(
+      const times = [...new Set(dayGames.map((g) => displayCache.get(g).time))].sort(
         (a, b) => timeToMinutes(a) - timeToMinutes(b)
       );
       const networksToday = [...new Set(dayGames.flatMap((g) => g.networks))].sort(compareNetworks);
@@ -185,8 +312,9 @@
       // cell[network][time] -> games in that slot
       const cell = new Map();
       for (const g of dayGames) {
+        const time = displayCache.get(g).time;
         for (const n of g.networks) {
-          const key = `${n} ${g.time}`;
+          const key = `${n} ${time}`;
           if (!cell.has(key)) cell.set(key, []);
           cell.get(key).push(g);
         }
@@ -234,7 +362,41 @@
     }
   }
 
+  // Picks the week whose games are "current": the most recent week whose
+  // earliest game has already kicked off, or (during the preseason lull
+  // before any games have started) the next upcoming week.
+  function computeCurrentWeek() {
+    const weekStarts = new Map();
+    for (const g of games) {
+      const parsed = parseGameDateTime(g);
+      if (!parsed) continue;
+      const utcMs = zonedWallClockToUTC(
+        scheduleYear, parsed.month + 1, parsed.day, parsed.hours, parsed.minutes, SOURCE_ZONE
+      );
+      const existing = weekStarts.get(g.week_label);
+      if (existing === undefined || utcMs < existing) weekStarts.set(g.week_label, utcMs);
+    }
+    const now = Date.now();
+    let current = null;
+    let currentTs = -Infinity;
+    let next = null;
+    let nextTs = Infinity;
+    for (const [week, ts] of weekStarts) {
+      if (ts <= now && ts > currentTs) {
+        current = week;
+        currentTs = ts;
+      }
+      if (ts > now && ts < nextTs) {
+        next = week;
+        nextTs = ts;
+      }
+    }
+    return current || next;
+  }
+
   function populateFilters() {
+    const previousValue = weekFilter.value;
+    const isFirstLoad = !weekFilter.dataset.initialized;
     const weeks = [...new Set(games.map((g) => g.week_label))];
     weekFilter.innerHTML = '<option value="">All weeks</option>';
     for (const w of weeks) {
@@ -242,6 +404,13 @@
       opt.value = w;
       opt.textContent = w;
       weekFilter.appendChild(opt);
+    }
+    if (isFirstLoad) {
+      const currentWeek = computeCurrentWeek();
+      if (currentWeek && weeks.includes(currentWeek)) weekFilter.value = currentWeek;
+      weekFilter.dataset.initialized = "1";
+    } else if (weeks.includes(previousValue)) {
+      weekFilter.value = previousValue;
     }
 
     const networkSet = new Set();
@@ -280,6 +449,7 @@
 
   function setData(data) {
     games = data.games || [];
+    if (data.scraped_at) scheduleYear = new Date(data.scraped_at).getUTCFullYear();
     updatedAt.textContent = data.scraped_at
       ? `Last updated: ${new Date(data.scraped_at).toLocaleString()}`
       : "No data yet";

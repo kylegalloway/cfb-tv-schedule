@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Time zone picker for the schedule table: auto-detect (default) plus
+  Eastern/Central/Mountain/Pacific, next to the existing dark mode toggle.
+  Choice is remembered in `localStorage` and game times re-render in the
+  selected zone locally, without a refetch.
 - Team logos are now downloaded and served locally (`fetch_logos.py`,
   `_localize_logos()` in `scraper.py`, `/logos/<file>` route in `app.py`)
   instead of linking directly to fbschedules.com's CDN — Cloudflare 403s
