@@ -362,36 +362,49 @@
     }
   }
 
-  // Picks the week whose games are "current": the most recent week whose
-  // earliest game has already kicked off, or (during the preseason lull
-  // before any games have started) the next upcoming week.
+  // A week isn't "over" the instant its last game kicks off — give it time
+  // to actually finish. Games don't carry a known end time, so this is a
+  // typical-length guess rather than something derived from real data.
+  const GAME_DURATION_MS = 4 * 60 * 60 * 1000;
+
+  // Picks the week whose games are "current": the chronologically-earliest
+  // week whose games aren't fully over yet (i.e. its last kickoff, plus a
+  // game-length buffer, hasn't passed), so a trailing Monday-nighter or a
+  // Tuesday-morning page load still advances to the next week once the
+  // previous week's games have wrapped up. Falls back to the most recent
+  // week once the whole season's data is in the past.
   function computeCurrentWeek() {
-    const weekStarts = new Map();
+    const weekBounds = new Map();
     for (const g of games) {
       const parsed = parseGameDateTime(g);
       if (!parsed) continue;
       const utcMs = zonedWallClockToUTC(
         scheduleYear, parsed.month + 1, parsed.day, parsed.hours, parsed.minutes, SOURCE_ZONE
       );
-      const existing = weekStarts.get(g.week_label);
-      if (existing === undefined || utcMs < existing) weekStarts.set(g.week_label, utcMs);
+      const bounds = weekBounds.get(g.week_label);
+      if (!bounds) {
+        weekBounds.set(g.week_label, { start: utcMs, end: utcMs });
+      } else {
+        if (utcMs < bounds.start) bounds.start = utcMs;
+        if (utcMs > bounds.end) bounds.end = utcMs;
+      }
     }
     const now = Date.now();
     let current = null;
-    let currentTs = -Infinity;
-    let next = null;
-    let nextTs = Infinity;
-    for (const [week, ts] of weekStarts) {
-      if (ts <= now && ts > currentTs) {
+    let currentStart = Infinity;
+    let mostRecent = null;
+    let mostRecentEnd = -Infinity;
+    for (const [week, bounds] of weekBounds) {
+      if (now < bounds.end + GAME_DURATION_MS && bounds.start < currentStart) {
         current = week;
-        currentTs = ts;
+        currentStart = bounds.start;
       }
-      if (ts > now && ts < nextTs) {
-        next = week;
-        nextTs = ts;
+      if (bounds.end > mostRecentEnd) {
+        mostRecentEnd = bounds.end;
+        mostRecent = week;
       }
     }
-    return current || next;
+    return current || mostRecent;
   }
 
   function populateFilters() {

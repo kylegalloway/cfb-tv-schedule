@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Auto-selected "current week" now advances once a week's games have
+  actually wrapped up, instead of sitting on that week indefinitely.
+  Previously `computeCurrentWeek()` in `static/app.js` only looked at each
+  week's *earliest* kickoff, so a trailing Monday-nighter (or just loading
+  the page days after the last Saturday game) kept the prior week selected
+  until the next week's first game began — a Tuesday-morning visitor after
+  a Monday night game would still see last week's schedule. It now tracks
+  each week's earliest *and* latest kickoff, treats a week as "over" once
+  its last game plus a 4-hour buffer has passed, and picks the earliest
+  week that isn't over yet.
+
 ### Added
 
 - Time zone picker for the schedule table: auto-detect (default) plus
