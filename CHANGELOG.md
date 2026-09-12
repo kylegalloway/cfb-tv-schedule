@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Team logos are now downloaded and served locally (`fetch_logos.py`,
+  `_localize_logos()` in `scraper.py`, `/logos/<file>` route in `app.py`)
+  instead of linking directly to fbschedules.com's CDN — Cloudflare 403s
+  hotlinked/non-browser image requests the same as it blocks scraping, so
+  the raw URLs never actually loaded in a browser. Logos are fetched once
+  per team (cached to `data/logos/`) through the same stealth-fetcher
+  browser session used for the HTML fallback.
 - Multi-tier fallback for fbschedules.com scrapes: when plain HTTP requests
   get blocked by Cloudflare's bot challenge (as they now do), retries via
   the sibling `stealth-fetcher` project, which drives a real browser engine

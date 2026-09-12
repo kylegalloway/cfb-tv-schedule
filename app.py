@@ -13,7 +13,7 @@ import os
 import threading
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 
 import scraper
 
@@ -43,6 +43,14 @@ def index():
 @app.get("/api/games")
 def get_games():
     return jsonify(_load_cached())
+
+
+@app.get("/logos/<path:filename>")
+def get_logo(filename):
+    # Locally cached team logos — scraper.py's _localize_logos() points
+    # games at these instead of fbschedules.com's URLs directly, since
+    # Cloudflare 403s hotlinked image requests the same as scraping.
+    return send_from_directory(scraper.LOGO_IMAGE_DIR, filename)
 
 
 @app.post("/api/refresh")

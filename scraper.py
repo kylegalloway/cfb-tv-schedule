@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -38,6 +39,14 @@ MANUAL_DIR = Path(__file__).parent / "data" / "manual"
 # any single week's response (or the NCAA.com fallback, which has no logos
 # at all).
 LOGO_CACHE_PATH = Path(__file__).parent / "data" / "team_logos.json"
+
+# fbschedules.com's Cloudflare protection 403s hotlinked/non-browser image
+# requests too, so the raw logo URLs above are unusable directly from a
+# client's browser. _localize_logos() downloads them once (via
+# stealth-fetcher, same as the HTML fallback) into this dir and serves them
+# from there — see app.py's /logos/<file> route.
+LOGO_IMAGE_DIR = Path(__file__).parent / "data" / "logos"
+LOGO_FETCH_SCRIPT_PATH = Path(__file__).parent / "fetch_logos.py"
 
 # Sibling local project that drives a real browser engine (camoufox/patchright)
 # to pass fbschedules.com's Cloudflare challenge when plain HTTP requests get
@@ -346,6 +355,7 @@ def scrape_all_from_manual(manual_dir: Path = MANUAL_DIR) -> dict:
     real fbschedules.com data, just fetched by hand."""
     all_games = scrape_from_manual_dir(manual_dir)
     _apply_logo_cache(all_games)
+    _localize_logos(all_games)
     for i, g in enumerate(all_games):
         g.order_index = i
 
@@ -388,6 +398,56 @@ def _apply_logo_cache(all_games: list[Game]) -> None:
     if changed:
         LOGO_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         LOGO_CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True))
+
+
+def _slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def _local_logo_path(url: str, team: str) -> Path:
+    ext = Path(url.split("?", 1)[0]).suffix or ".png"
+    return LOGO_IMAGE_DIR / f"{_slugify(team)}{ext}"
+
+
+def _localize_logos(all_games: list[Game]) -> None:
+    """Points each game's logo fields at a locally cached copy (downloaded
+    via stealth-fetcher, see fetch_logos.py) instead of fbschedules.com's
+    URL directly — a browser hitting that URL gets 403'd by Cloudflare same
+    as a plain scrape would. Games whose logo couldn't be fetched (missing
+    from the cache, or the fetch itself failed) get None rather than a URL
+    that will always 403, so the frontend's onerror-remove just omits them
+    cleanly instead of trying and failing on every page load."""
+    to_fetch: dict[str, str] = {}
+    for g in all_games:
+        for team, url in ((g.away_team, g.away_logo), (g.home_team, g.home_logo)):
+            if url and not _local_logo_path(url, team).exists():
+                to_fetch[_slugify(team)] = url
+
+    if to_fetch and STEALTH_FETCHER_DIR.exists():
+        manifest_dir = Path(tempfile.mkdtemp(prefix="cfb_logos_"))
+        manifest_path = manifest_dir / "manifest.json"
+        manifest_path.write_text(json.dumps(to_fetch))
+        try:
+            result = subprocess.run(
+                ["uv", "run", "stealth-fetcher", "run", str(LOGO_FETCH_SCRIPT_PATH), "--",
+                 "-i", str(manifest_path), "-o", str(LOGO_IMAGE_DIR)],
+                cwd=STEALTH_FETCHER_DIR,
+                capture_output=True,
+                text=True,
+                timeout=STEALTH_FETCHER_TIMEOUT_SECONDS,
+            )
+            if result.returncode != 0:
+                print(f"warning: logo fetch failed: {result.stderr.strip()[-500:]}")
+        finally:
+            shutil.rmtree(manifest_dir, ignore_errors=True)
+
+    for g in all_games:
+        for attr, team in (("away_logo", g.away_team), ("home_logo", g.home_team)):
+            url = getattr(g, attr)
+            if not url:
+                continue
+            local_path = _local_logo_path(url, team)
+            setattr(g, attr, f"/logos/{local_path.name}" if local_path.exists() else None)
 
 
 def _load_last_known_good() -> dict | None:
@@ -443,6 +503,7 @@ def scrape_all() -> dict:
         source = "ncaa_fallback"
 
     _apply_logo_cache(all_games)
+    _localize_logos(all_games)
 
     for i, g in enumerate(all_games):
         g.order_index = i
