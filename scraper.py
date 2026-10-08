@@ -28,7 +28,7 @@ from networks import split_networks
 
 SCHEDULE_URL = "https://fbschedules.com/college-football-tv-schedule/"
 AJAX_URL = "https://fbschedules.com/wp-admin/admin-ajax.php"
-DATA_PATH = Path(__file__).parent / "data" / "games.json"
+DATA_PATH = Path(__file__).parent / "data" / "cfb_games.json"
 MANUAL_DIR = Path(__file__).parent / "data" / "manual"
 
 # Team logos come from fbschedules.com's mobile-card fragment, which only
@@ -80,6 +80,9 @@ BASE_FORM_FIELDS = {
 
 REQUEST_DELAY_SECONDS = 1.0
 
+# fbschedules.com (and the NCAA.com fallback) list times as US Eastern.
+CFB_TIME_ZONE = "America/New_York"
+
 
 @dataclass
 class Game:
@@ -99,6 +102,14 @@ class Game:
     networks: list[str] = field(default_factory=list)
     away_logo: str | None = None
     home_logo: str | None = None
+    league: str = "CFB"
+    # Absolute start time (ISO 8601) when the source gives an unambiguous
+    # one. Sources that only have wall-clock `date`/`time` strings (like
+    # this one) leave it None, set `time_zone` if it isn't CFB_TIME_ZONE,
+    # and schedule.py derives `start_utc` / `start_date` when merging.
+    start_utc: str | None = None
+    start_date: str | None = None
+    time_zone: str | None = None
 
     def __post_init__(self):
         if not self.networks:

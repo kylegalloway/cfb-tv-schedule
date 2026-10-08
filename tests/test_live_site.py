@@ -13,6 +13,7 @@ since fixtures are frozen snapshots.
 import pytest
 
 import ncaa_scraper
+import schedule
 import scraper
 
 
@@ -55,3 +56,12 @@ def test_scrape_all_end_to_end_uses_primary_source_not_fallback():
     assert data["source"] == "fbschedules"
     assert data["degraded"] is False
     assert len(data["games"]) > 500
+
+
+@pytest.mark.live
+def test_kstp_wild_article_still_parses_all_games():
+    wild = next(s for s in schedule.SOURCES if s.key == "nhl_wild")
+    games = wild.parse(wild.fetch())
+
+    assert len(games) == 10, "KSTP Wild article should list 10 OTA games — markup or wording may have changed"
+    assert all(g.network in wild.ota_networks for g in games)

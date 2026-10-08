@@ -11,6 +11,26 @@ All notable changes to this project will be documented in this file.
   football. Dashboard title, package name, Docker image name in the docs,
   and `localStorage` preference keys changed (old keys are still read, so
   saved theme/time zone choices carry over).
+- Sources are now pluggable (`schedule.py`): each source scrapes into its
+  own cache (`data/<key>_games.json`) and the dashboard serves a merge of
+  all of them. A failing source keeps its last cache without affecting the
+  others. The CFB cache moved from `data/games.json` to
+  `data/cfb_games.json`; an existing file is migrated automatically on
+  first load.
+- Game start times are normalized server-side to `start_utc` /
+  `start_date` for every source (CFB's Eastern wall-clock strings
+  included), so the frontend no longer assumes one source's format. As a
+  side effect, January CFB games scraped in the fall now get the correct
+  (next) year.
+- `/api/games` now returns the merged payload with per-source status
+  (`sources`) and every source's local OTA stations (`ota_networks`).
+
+### Added
+
+- Minnesota Wild OTA games (KSTP-TV 5 / KSTC-TV 45) from KSTP's 2026-27
+  broadcast announcement, via a reusable KSTP article parser
+  (`kstp_scraper.py`) that other teams' KSTP announcements can reuse.
+- `tzdata` dependency, so time zone conversion works in slim containers.
 
 ### Fixed
 
