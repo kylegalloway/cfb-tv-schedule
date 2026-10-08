@@ -23,7 +23,7 @@ All notable changes to this project will be documented in this file.
   side effect, January CFB games scraped in the fall now get the correct
   (next) year.
 - `/api/games` now returns the merged payload with per-source status
-  (`sources`) and every source's local OTA stations (`ota_networks`).
+  (`sources`) and the St. Paul OTA channel lineup (`channels`).
 - The week picker now uses shared Tuesday–Monday broadcast weeks across
   all leagues, labeled with any league's own week number (e.g. "Oct 6 –
   Oct 12 · CFB Week 6"). The table's "Week" column is now "League", and the
@@ -35,9 +35,12 @@ All notable changes to this project will be documented in this file.
   broadcast announcement, via a reusable KSTP article parser
   (`kstp_scraper.py`) that other teams' KSTP announcements can reuse.
 - League filter on the dashboard.
-- Local OTA stations declared by each source now count as OTA in the
-  network filter ("OTA only" preset, the default) and are grouped right
-  after the national broadcast networks.
+- St. Paul OTA channel lineup (`stations.py`). Local affiliates show as
+  their national network (KSTP-TV 5 is "ABC", FOX9 is "FOX"), so they
+  share one filter entry and guide row. Every OTA network is labeled with
+  its digital channel ("5.1 ABC", "5.2 45TV") and sorted in channel
+  order. Anything with a channel counts as OTA for the "OTA only" preset
+  (the default).
 - `tzdata` dependency, so time zone conversion works in slim containers.
 
 ### Fixed

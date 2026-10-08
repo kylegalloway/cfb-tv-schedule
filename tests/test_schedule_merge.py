@@ -14,7 +14,6 @@ import scraper
 class FakeSource:
     key: str
     data_path: Path
-    ota_networks: frozenset[str] = frozenset()
     games: list[dict] = field(default_factory=list)
     fail: bool = False
 
@@ -42,9 +41,9 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(schedule, "LEGACY_CFB_DATA_PATH", tmp_path / "games.json")
 
 
-def test_merges_sources_and_unions_ota_networks(tmp_path, monkeypatch):
-    a = FakeSource("a", tmp_path / "a.json", frozenset({"KAAA 1"}), [_cfb_game(league="CFB")])
-    b = FakeSource("b", tmp_path / "b.json", frozenset({"KBBB 2"}),
+def test_merges_sources_and_serves_the_channel_lineup(tmp_path, monkeypatch):
+    a = FakeSource("a", tmp_path / "a.json", [_cfb_game(league="CFB")])
+    b = FakeSource("b", tmp_path / "b.json",
                    [{"league": "NHL", "start_utc": "2026-10-04T00:00:00+00:00", "away_team": "X", "home_team": "Y"}])
     monkeypatch.setattr(schedule, "SOURCES", [a, b])
 
@@ -52,7 +51,15 @@ def test_merges_sources_and_unions_ota_networks(tmp_path, monkeypatch):
 
     assert set(data["sources"]) == {"a", "b"}
     assert [g["league"] for g in data["games"]] == ["CFB", "NHL"]
-    assert data["ota_networks"] == ["KAAA 1", "KBBB 2"]
+    assert data["channels"]["ABC"] == "5.1"
+
+
+def test_local_affiliate_networks_merge_into_their_national_network():
+    game = schedule._normalize_game(_cfb_game(networks=["ABC", "KSTP-TV 5", "ESPN"]), None)
+    wild = schedule._normalize_game(_cfb_game(networks=["KSTC-TV 45"]), None)
+
+    assert game["networks"] == ["ABC", "ESPN"]
+    assert wild["networks"] == ["45TV"]
 
 
 def test_one_failing_source_keeps_its_cache_and_does_not_block_others(tmp_path, monkeypatch):

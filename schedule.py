@@ -12,13 +12,17 @@ A source is anything with:
 - `key`           unique id, e.g. "nhl_wild"
 - `data_path`     where its cache JSON lives: {"scraped_at", "games", "source", "degraded"}
 - `refresh()`     re-scrapes and rewrites data_path; raises on failure
-- `ota_networks`  local OTA station names it emits (feeds the "OTA only" preset)
 
 Each cached game is a scraper.Game dict. Set `league` (shown in the League
 column/filter), and give its start time either as `start_utc` (ISO 8601,
 preferred) or as `date` ("Saturday, October 3") + `time` ("7:00pm") wall
 clock in `time_zone`. `_normalize_game()` fills in `start_utc` / `start_date`
 from the latter, so the frontend only ever reads those two.
+
+Network names go through stations.local_network() too, so a source can
+name a local affiliate ("KSTP-TV 5") and it still shows as the national
+network ("ABC") on its St. Paul channel ("5.1"). A new local station only
+needs a row in stations.LINEUP.
 
 Then register it in SOURCES below. A league with numbered weeks (like CFB's
 "Week 7") can also set `week_label`; the dashboard shows it next to the
@@ -37,6 +41,7 @@ from zoneinfo import ZoneInfo
 
 import kstp_scraper
 import scraper
+import stations
 
 
 @dataclass
@@ -47,7 +52,6 @@ class ModuleSource:
 
     key: str
     module: ModuleType
-    ota_networks: frozenset[str] = frozenset()
 
     @property
     def data_path(self) -> Path:
@@ -64,7 +68,6 @@ SOURCES = [
         url="https://kstp.com/minnesota-sports/kstp-45tv-to-broadcast-10-minnesota-wild-games-this-season/",
         team="Minnesota Wild",
         league="NHL",
-        ota_networks=frozenset({"KSTP-TV 5", "KSTC-TV 45"}),
     ),
 ]
 
@@ -96,6 +99,8 @@ def _normalize_game(game: dict, scraped_at: str | None) -> dict:
     # Serialized Games carry these keys as null, so test truthiness rather
     # than setdefault().
     game["league"] = game.get("league") or "CFB"
+    # dict.fromkeys dedupes while keeping order, e.g. "ABC or KSTP-TV 5".
+    game["networks"] = list(dict.fromkeys(stations.local_network(n) for n in game.get("networks") or []))
     zone = ZoneInfo(game.get("time_zone") or scraper.CFB_TIME_ZONE)
     if game.get("start_utc"):
         if not game.get("start_date"):
@@ -127,9 +132,7 @@ def load_all() -> dict:
 
     games: list[dict] = []
     sources: dict[str, dict] = {}
-    ota_networks: set[str] = set()
     for source in SOURCES:
-        ota_networks |= source.ota_networks
         if not source.data_path.exists():
             continue
         data = json.loads(source.data_path.read_text())
@@ -148,7 +151,8 @@ def load_all() -> dict:
         # The dashboard's degraded banner describes the CFB NCAA.com fallback
         # specifically; other sources just keep serving their last good cache.
         "degraded": sources.get("cfb", {}).get("degraded", False),
-        "ota_networks": sorted(ota_networks),
+        # OTA network -> St. Paul digital channel, e.g. {"ABC": "5.1"}.
+        "channels": stations.CHANNELS,
     }
 
 

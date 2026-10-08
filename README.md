@@ -27,12 +27,18 @@ fixed format. `kstp_scraper.KstpBroadcastArticle` parses any team's article.
 
 ### Add a source
 
-1. Write a source with `key`, `data_path`, `refresh()` and `ota_networks`.
+1. Write a source with `key`, `data_path` and `refresh()`.
    See the docstring at the top of `schedule.py` for the full contract.
 2. For another KSTP team article, add a `KstpBroadcastArticle` instead.
 3. Register the source in `schedule.SOURCES`.
 4. Add a trimmed HTML fixture and a parsing test under `tests/`.
 5. Add a `live` canary test to `tests/test_live_site.py`.
+6. If the source names a local station that is not in `stations.LINEUP`,
+   add the station with its digital channel.
+
+**Channels:** `stations.py` holds the St. Paul OTA lineup. Each local
+affiliate shows as its national network ("KSTP-TV 5" is "ABC"), labeled
+and sorted by digital channel ("5.1 ABC").
 
 Weeks in the dashboard are shared Tuesday–Monday broadcast weeks (US
 Eastern). A league with numbered weeks sets `week_label` on its games, and
@@ -81,6 +87,7 @@ uv run pytest -m live
   checks home/road, Central time and the season's year rollover.
 - `tests/test_schedule_merge.py` — the multi-source merge, per-source
   failure isolation, time normalization and the legacy cache migration.
+- `tests/test_stations.py` — the St. Paul channel lineup.
 - `tests/test_cross_check.py` — parses a game that appears in both sources'
   fixtures and checks the two independently-scraped values agree (after
   normalizing each source's own time/network format).

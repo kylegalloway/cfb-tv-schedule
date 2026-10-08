@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -123,8 +123,6 @@ class KstpBroadcastArticle:
     # Month the season starts in; dates before it belong to the season's
     # second calendar year (only matters for "YYYY-YY season" articles).
     season_start_month: int = 8
-    # Station names exactly as they appear in the article's network text.
-    ota_networks: frozenset[str] = field(default_factory=frozenset)
 
     @property
     def data_path(self) -> Path:

@@ -15,6 +15,7 @@ import pytest
 import ncaa_scraper
 import schedule
 import scraper
+import stations
 
 
 @pytest.mark.live
@@ -64,4 +65,5 @@ def test_kstp_wild_article_still_parses_all_games():
     games = wild.parse(wild.fetch())
 
     assert len(games) == 10, "KSTP Wild article should list 10 OTA games — markup or wording may have changed"
-    assert all(g.network in wild.ota_networks for g in games)
+    assert all(stations.local_network(g.network) in stations.CHANNELS for g in games)
+

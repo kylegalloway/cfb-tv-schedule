@@ -167,7 +167,9 @@
   }
 
   let games = [];
-  let otaNetworks = new Set();
+  // OTA network -> St. Paul digital channel ("ABC" -> "5.1"), from the
+  // server's station lineup (stations.py).
+  let channels = {};
   let sortKey = "date";
   let sortDir = 1;
 
@@ -196,35 +198,52 @@
 
   let viewMode = "list";
 
-  // Network dropdown ordering: major broadcast networks first, then the
-  // ESPN family + major streaming services, then everything else (local
-  // affiliates, regional sports networks, etc). Exact-match sets, not
-  // prefixes — "ABC" belongs in tier 1, but "ABC 7" (a local affiliate) is
-  // a different string and correctly falls through to tier 3.
-  // Local OTA stations (from the server's `ota_networks`) slot in between
-  // the national broadcast networks and cable/streaming.
-  const NETWORK_TIER_1 = new Set(["ABC", "CBS", "NBC", "FOX", "The CW"]);
-  const NETWORK_TIER_2 = new Set([
+  // Network dropdown ordering: OTA channels first, in channel order (2.1,
+  // 4.1, 5.1, 5.2, ...), then the ESPN family + major streaming services,
+  // then everything else (other markets' affiliates, regional sports
+  // networks, etc). Exact-match sets, not prefixes — "ABC" is OTA here,
+  // but "ABC 7" (another market's affiliate) is a different string and
+  // correctly falls through to the last tier.
+  // National broadcast networks, for the "National only" preset; a local
+  // independent like 45TV is OTA but not national.
+  const NATIONAL_BROADCAST = new Set(["ABC", "CBS", "NBC", "FOX", "The CW", "PBS", "ION", "MyNetworkTV"]);
+  const NATIONAL_CABLE = new Set([
     "ESPN", "ESPN2", "ESPNU", "ESPN+", "ESPN network",
     "ACCN", "ACCNX", "SECN", "SECN+", "BTN", "FS1", "CBSSN",
     "Peacock", "Paramount+", "Disney+", "HBO Max", "USA", "YouTube", "TNT",
   ]);
 
-  const TIER_NATIONAL_OTA = 0;
-  const TIER_LOCAL_OTA = 1;
-  const TIER_NATIONAL_CABLE = 2;
-  const TIER_OTHER = 3;
+  const TIER_OTA = 0;
+  const TIER_NATIONAL_CABLE = 1;
+  const TIER_OTHER = 2;
 
   function networkTier(name) {
-    if (NETWORK_TIER_1.has(name)) return TIER_NATIONAL_OTA;
-    if (otaNetworks.has(name)) return TIER_LOCAL_OTA;
-    if (NETWORK_TIER_2.has(name)) return TIER_NATIONAL_CABLE;
+    if (channels[name]) return TIER_OTA;
+    if (NATIONAL_CABLE.has(name)) return TIER_NATIONAL_CABLE;
     return TIER_OTHER;
+  }
+
+  // "9.10" -> [9, 10], so it sorts after 9.2 (a subchannel number, not a
+  // decimal fraction).
+  function channelSortKey(channel) {
+    const [major, minor = 0] = channel.split(".").map(Number);
+    return [major, minor];
   }
 
   function compareNetworks(a, b) {
     const tierDiff = networkTier(a) - networkTier(b);
-    return tierDiff !== 0 ? tierDiff : a.localeCompare(b);
+    if (tierDiff !== 0) return tierDiff;
+    if (channels[a] && channels[b]) {
+      const [aMajor, aMinor] = channelSortKey(channels[a]);
+      const [bMajor, bMinor] = channelSortKey(channels[b]);
+      return aMajor - bMajor || aMinor - bMinor;
+    }
+    return a.localeCompare(b);
+  }
+
+  // "ABC" -> "5.1 ABC"; non-OTA networks have no channel to show.
+  function networkLabel(name) {
+    return channels[name] ? `${channels[name]} ${name}` : name;
   }
 
   function timeToMinutes(t) {
@@ -325,7 +344,7 @@
         <td>${date}</td>
         <td>${time}</td>
         <td class="matchup-cell">${matchupHTML(g)}</td>
-        <td>${g.network}</td>
+        <td>${g.networks.map(networkLabel).join(" / ")}</td>
       `;
       tbody.appendChild(tr);
     }
@@ -383,7 +402,7 @@
       const guideBody = document.createElement("tbody");
       for (const n of networksToday) {
         const tr = document.createElement("tr");
-        let rowHtml = `<th class="guide-channel">${n}</th>`;
+        let rowHtml = `<th class="guide-channel">${networkLabel(n)}</th>`;
         for (const t of times) {
           const slotGames = cell.get(`${n} ${t}`) || [];
           rowHtml += `<td>${slotGames.map((g) => `<div class="guide-game">${matchupHTML(g)}</div>`).join("")}</td>`;
@@ -510,7 +529,7 @@
 
       const label = document.createElement("label");
       label.className = "network-option";
-      label.innerHTML = `<input type="checkbox" value="${n}" /> ${n}`;
+      label.innerHTML = `<input type="checkbox" value="${n}" /> ${networkLabel(n)}`;
       networkCheckboxes.appendChild(label);
     }
     selectOta();
@@ -529,7 +548,7 @@
   }
 
   function setData(data) {
-    otaNetworks = new Set(data.ota_networks || []);
+    channels = data.channels || {};
     games = (data.games || []).map((g) => {
       const game = { ...g };
       game._sortMs = gameSortMs(game);
@@ -612,21 +631,20 @@
   });
 
   networkSelectNational.addEventListener("click", () => {
-    // "National" = major broadcast + ESPN family/streaming; excludes local
-    // OTA stations and everything else (regional sports networks, etc).
+    // "National" = national broadcast networks + ESPN family/streaming;
+    // excludes local independents (45TV) and everything else (regional
+    // sports networks, etc).
     networkCheckboxes.querySelectorAll("input").forEach((b) => {
-      const tier = networkTier(b.value);
-      b.checked = tier === TIER_NATIONAL_OTA || tier === TIER_NATIONAL_CABLE;
+      b.checked = NATIONAL_BROADCAST.has(b.value) || networkTier(b.value) === TIER_NATIONAL_CABLE;
     });
     updateNetworkSummary();
     render();
   });
 
   function selectOta() {
-    // OTA (over-the-air) = national broadcast networks (ABC, CBS, NBC,
-    // FOX, The CW) plus local OTA stations (e.g. KSTP-TV 5).
+    // OTA (over-the-air) = anything with a St. Paul channel number.
     networkCheckboxes.querySelectorAll("input").forEach((b) => {
-      b.checked = networkTier(b.value) <= TIER_LOCAL_OTA;
+      b.checked = networkTier(b.value) === TIER_OTA;
     });
     updateNetworkSummary();
   }
