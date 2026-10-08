@@ -24,6 +24,9 @@ name a local affiliate ("KSTP-TV 5") and it still shows as the national
 network ("ABC") on its St. Paul channel ("5.1"). A new local station only
 needs a row in stations.LINEUP.
 
+A source doesn't need to supply logos: a league with a provider in
+logos.PROVIDERS gets its teams' logos filled in from there.
+
 Then register it in SOURCES below. A league with numbered weeks (like CFB's
 "Week 7") can also set `week_label`; the dashboard shows it next to the
 shared Tuesday-Monday broadcast week.
@@ -40,6 +43,7 @@ from types import ModuleType
 from zoneinfo import ZoneInfo
 
 import kstp_scraper
+import logos
 import scraper
 import stations
 
@@ -142,6 +146,7 @@ def load_all() -> dict:
             "degraded": bool(data.get("degraded")),
         }
         games.extend(_normalize_game(g, data.get("scraped_at")) for g in data.get("games", []))
+    logos.apply(games)
 
     scraped = [s["scraped_at"] for s in sources.values() if s["scraped_at"]]
     return {
@@ -165,6 +170,7 @@ def refresh_all() -> dict:
             source.refresh()
         except Exception as exc:  # noqa: BLE001 — keep refreshing the other sources
             print(f"warning: {source.key} refresh failed ({exc}); keeping its last cached data")
+    logos.fetch_missing(load_all()["games"])
     return load_all()
 
 

@@ -35,6 +35,9 @@ All notable changes to this project will be documented in this file.
   broadcast announcement, via a reusable KSTP article parser
   (`kstp_scraper.py`) that other teams' KSTP announcements can reuse.
 - League filter on the dashboard.
+- Team logos for leagues whose source has none (`logos.py`). NHL logos
+  come from the NHL's public API and are cached in `data/logos/nhl/`. A
+  new league only needs a logo provider.
 - St. Paul OTA channel lineup (`stations.py`). Local affiliates show as
   their national network (KSTP-TV 5 is "ABC", FOX9 is "FOX"), so they
   share one filter entry and guide row. Every OTA network is labeled with

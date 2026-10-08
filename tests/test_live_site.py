@@ -12,6 +12,7 @@ since fixtures are frozen snapshots.
 
 import pytest
 
+import logos
 import ncaa_scraper
 import schedule
 import scraper
@@ -67,3 +68,12 @@ def test_kstp_wild_article_still_parses_all_games():
     assert len(games) == 10, "KSTP Wild article should list 10 OTA games — markup or wording may have changed"
     assert all(stations.local_network(g.network) in stations.CHANNELS for g in games)
 
+
+@pytest.mark.live
+def test_nhl_logo_provider_covers_every_wild_opponent():
+    wild = next(s for s in schedule.SOURCES if s.key == "nhl_wild")
+    games = wild.parse(wild.fetch())
+    urls = {logos.team_slug(name) for name in logos.PROVIDERS["NHL"].logo_urls()}
+
+    teams = {g.away_team for g in games} | {g.home_team for g in games}
+    assert {logos.team_slug(t) for t in teams} <= urls

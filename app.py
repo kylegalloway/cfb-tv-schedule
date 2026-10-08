@@ -44,6 +44,7 @@ def get_logo(filename):
     # Locally cached team logos — scraper.py's _localize_logos() points
     # games at these instead of fbschedules.com's URLs directly, since
     # Cloudflare 403s hotlinked image requests the same as scraping.
+    # Other leagues' logos (logos.py) live in per-league subfolders.
     return send_from_directory(scraper.LOGO_IMAGE_DIR, filename)
 
 

@@ -35,6 +35,12 @@ fixed format. `kstp_scraper.KstpBroadcastArticle` parses any team's article.
 5. Add a `live` canary test to `tests/test_live_site.py`.
 6. If the source names a local station that is not in `stations.LINEUP`,
    add the station with its digital channel.
+7. If the source has no team logos and its league is not in
+   `logos.PROVIDERS`, add a logo provider for the league.
+
+**Logos:** CFB logos come with the fbschedules.com scrape. Other leagues
+get logos from a provider in `logos.py` (the NHL's public API for NHL).
+A refresh downloads missing logos to `data/logos/<league>/`.
 
 **Channels:** `stations.py` holds the St. Paul OTA lineup. Each local
 affiliate shows as its national network ("KSTP-TV 5" is "ABC"), labeled
@@ -87,7 +93,8 @@ uv run pytest -m live
   checks home/road, Central time and the season's year rollover.
 - `tests/test_schedule_merge.py` — the multi-source merge, per-source
   failure isolation, time normalization and the legacy cache migration.
-- `tests/test_stations.py` — the St. Paul channel lineup.
+- `tests/test_stations.py` and `tests/test_logos.py` — the St. Paul
+  channel lineup and the per-league logo lookup.
 - `tests/test_cross_check.py` — parses a game that appears in both sources'
   fixtures and checks the two independently-scraped values agree (after
   normalizing each source's own time/network format).
