@@ -261,18 +261,19 @@
     return `${away} ${g.separator} ${home}`;
   }
 
-  function logoImg(url, teamName) {
+  function logoImg(url, teamName, league) {
     if (!url) return "";
-    return `<img class="team-logo" src="${url}" alt="${teamName} logo" loading="lazy" onerror="this.remove()" />`;
+    const leagueClass = league ? ` team-logo--${league.toLowerCase()}` : "";
+    return `<img class="team-logo${leagueClass}" src="${url}" alt="${teamName} logo" loading="lazy" onerror="this.remove()" />`;
   }
 
   function matchupHTML(g) {
     const away = (g.away_rank ? `#${g.away_rank} ` : "") + g.away_team;
     const home = (g.home_rank ? `#${g.home_rank} ` : "") + g.home_team;
     return (
-      `${logoImg(g.away_logo, g.away_team)}` +
+      `${logoImg(g.away_logo, g.away_team, g.league)}` +
       `<span class="team-name">${away}</span> ${g.separator} <span class="team-name">${home}</span>` +
-      `${logoImg(g.home_logo, g.home_team)}`
+      `${logoImg(g.home_logo, g.home_team, g.league)}`
     );
   }
 

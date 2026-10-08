@@ -296,6 +296,16 @@ th:hover {
   box-shadow: 0 0 0 1px var(--border-strong);
 }
 
+/* NHL logos are wide SVGs (3:2 viewBox, art in roughly the middle 70%),
+   so "contain" shrinks them to a sliver. "cover" crops the empty sides
+   and lets the art fill the circle. */
+.team-logo--nhl {
+  height: 2em;
+  width: 2em;
+  padding: 2px;
+  object-fit: cover;
+}
+
 .matchup-cell {
   white-space: nowrap;
 }

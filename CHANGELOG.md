@@ -38,6 +38,8 @@ All notable changes to this project will be documented in this file.
 - Team logos for leagues whose source has none (`logos.py`). NHL logos
   come from the NHL's public API and are cached in `data/logos/nhl/`. A
   new league only needs a logo provider.
+  NHL logos render larger than CFB's (`.team-logo--nhl`) and crop their
+  wide SVGs' empty margins, which otherwise shrink them to a sliver.
 - St. Paul OTA channel lineup (`stations.py`). Local affiliates show as
   their national network (KSTP-TV 5 is "ABC", FOX9 is "FOX"), so they
   share one filter entry and guide row. Every OTA network is labeled with
