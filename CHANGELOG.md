@@ -28,6 +28,9 @@ All notable changes to this project will be documented in this file.
   all leagues, labeled with any league's own week number (e.g. "Oct 6 –
   Oct 12 · CFB Week 6"). The table's "Week" column is now "League", and the
   Date column sorts chronologically.
+- The Dockerfile builds the bundled stealth-fetcher (camoufox/Firefox,
+  apt-get) before the app's own files, so a code or frontend change no
+  longer rebuilds it. A CSS-only rebuild went from 10+ minutes to seconds.
 
 ### Added
 
