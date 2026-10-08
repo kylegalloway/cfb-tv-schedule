@@ -22,14 +22,14 @@
     applyTheme(next);
   });
 
-  // Scraped times are wall-clock US Eastern. This picker lets the viewer
-  // see them converted to their own zone; conversion is DST-aware (uses
-  // the actual offset for each game's date, not a fixed ET/CT-style delta).
+  // Every game arrives with an absolute `start_utc` (or just a `start_date`
+  // when its time is TBD) — the server normalizes each source's own
+  // wall-clock format. This picker shows them in the viewer's zone.
+  // Broadcast weeks and TBD dates are anchored to US Eastern.
   const SOURCE_ZONE = "America/New_York";
   const TZ_KEY = "ota-sports-schedule-timezone";
   const timezoneSelect = document.getElementById("timezone-select");
   const timeColHeader = document.getElementById("time-col-header");
-  let scheduleYear = new Date().getFullYear();
 
   function resolveZone() {
     if (timezoneSelect.value === "auto") {
@@ -94,29 +94,28 @@
     "July", "August", "September", "October", "November", "December",
   ];
 
-  function parseGameDateTime(g) {
-    // date: "Thursday, August 27"; time: "6:00pm" or "TBD"/"" etc.
-    const dateMatch = /,\s*([A-Za-z]+)\s+(\d{1,2})\s*$/.exec((g.date || "").trim());
-    const timeMatch = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec((g.time || "").trim());
-    if (!dateMatch || !timeMatch) return null;
-    const month = MONTHS.indexOf(dateMatch[1]);
-    if (month === -1) return null;
-    const day = parseInt(dateMatch[2], 10);
-    let hours = parseInt(timeMatch[1], 10) % 12;
-    if (timeMatch[3].toLowerCase() === "pm") hours += 12;
-    const minutes = parseInt(timeMatch[2], 10);
-    return { month, day, hours, minutes };
+  // The game's start as a UTC epoch-ms instant, or null when unknown
+  // (e.g. a "TBD" kickoff).
+  function gameInstantMs(g) {
+    return g.start_utc ? Date.parse(g.start_utc) : null;
+  }
+
+  // Sort/bucket key for every game, including ones without a known start
+  // time: those sort at the end of their (Eastern) day.
+  function gameSortMs(g) {
+    const instant = gameInstantMs(g);
+    if (instant !== null) return instant;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(g.start_date || "");
+    if (!m) return Infinity;
+    return zonedWallClockToUTC(Number(m[1]), Number(m[2]), Number(m[3]), 23, 59, SOURCE_ZONE);
   }
 
   // Returns display strings for a game's date/time converted into the
   // currently selected zone. Falls back to the raw values (e.g. "TBD").
   function convertGameDateTime(g, zone) {
-    const parsed = parseGameDateTime(g);
-    if (!parsed) return { date: g.date, time: g.time };
+    const utcMs = gameInstantMs(g);
+    if (utcMs === null) return { date: g.date, time: g.time };
 
-    const utcMs = zonedWallClockToUTC(
-      scheduleYear, parsed.month + 1, parsed.day, parsed.hours, parsed.minutes, SOURCE_ZONE
-    );
     const wall = wallClockIn(new Date(utcMs), zone);
     const weekday = new Intl.DateTimeFormat("en-US", { timeZone: zone, weekday: "long" })
       .format(new Date(utcMs));
@@ -143,11 +142,37 @@
     render();
   });
 
+  // Weeks are broadcast weeks shared by every league: Tuesday through
+  // Monday (Eastern), which keeps a football week's Thursday-Saturday slate
+  // and any Monday-nighter together. Key is the Tuesday's YYYY-MM-DD.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function broadcastWeekKey(ms) {
+    if (!Number.isFinite(ms)) return "";
+    const wall = wallClockIn(new Date(ms), SOURCE_ZONE);
+    const dayUtc = Date.UTC(wall.y, wall.m - 1, wall.d);
+    const sinceTuesday = (new Date(dayUtc).getUTCDay() + 5) % 7;
+    return new Date(dayUtc - sinceTuesday * DAY_MS).toISOString().slice(0, 10);
+  }
+
+  // leagueWeeks: e.g. ["CFB Week 7", "NFL Week 5"] for leagues that
+  // number their weeks.
+  function broadcastWeekLabel(key, leagueWeeks) {
+    if (!key) return "Date TBD";
+    const fmt = (ms) =>
+      new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const start = Date.parse(key);
+    const label = `${fmt(start)} – ${fmt(start + 6 * DAY_MS)}`;
+    return leagueWeeks.length ? `${label} · ${leagueWeeks.join(" / ")}` : label;
+  }
+
   let games = [];
-  let sortKey = "order_index";
+  let otaNetworks = new Set();
+  let sortKey = "date";
   let sortDir = 1;
 
   const weekFilter = document.getElementById("week-filter");
+  const leagueFilter = document.getElementById("league-filter");
   const teamSearch = document.getElementById("team-search");
   const networkCheckboxes = document.getElementById("network-checkboxes");
   const networkDropdownBtn = document.getElementById("network-dropdown-btn");
@@ -176,6 +201,8 @@
   // affiliates, regional sports networks, etc). Exact-match sets, not
   // prefixes — "ABC" belongs in tier 1, but "ABC 7" (a local affiliate) is
   // a different string and correctly falls through to tier 3.
+  // Local OTA stations (from the server's `ota_networks`) slot in between
+  // the national broadcast networks and cable/streaming.
   const NETWORK_TIER_1 = new Set(["ABC", "CBS", "NBC", "FOX", "The CW"]);
   const NETWORK_TIER_2 = new Set([
     "ESPN", "ESPN2", "ESPNU", "ESPN+", "ESPN network",
@@ -183,10 +210,16 @@
     "Peacock", "Paramount+", "Disney+", "HBO Max", "USA", "YouTube", "TNT",
   ]);
 
+  const TIER_NATIONAL_OTA = 0;
+  const TIER_LOCAL_OTA = 1;
+  const TIER_NATIONAL_CABLE = 2;
+  const TIER_OTHER = 3;
+
   function networkTier(name) {
-    if (NETWORK_TIER_1.has(name)) return 0;
-    if (NETWORK_TIER_2.has(name)) return 1;
-    return 2;
+    if (NETWORK_TIER_1.has(name)) return TIER_NATIONAL_OTA;
+    if (otaNetworks.has(name)) return TIER_LOCAL_OTA;
+    if (NETWORK_TIER_2.has(name)) return TIER_NATIONAL_CABLE;
+    return TIER_OTHER;
   }
 
   function compareNetworks(a, b) {
@@ -224,15 +257,21 @@
     );
   }
 
+  function leagueText(g) {
+    return g.week_label ? `${g.league} · ${g.week_label}` : g.league;
+  }
+
   function getFilteredGames() {
     const week = weekFilter.value;
+    const league = leagueFilter.value;
     const search = teamSearch.value.trim().toLowerCase();
     const checkedNetworks = new Set(
       Array.from(networkCheckboxes.querySelectorAll("input:checked")).map((el) => el.value)
     );
 
     return games.filter((g) => {
-      if (week && g.week_label !== week) return false;
+      if (week && g._week !== week) return false;
+      if (league && g.league !== league) return false;
       if (!g.networks.some((n) => checkedNetworks.has(n))) return false;
       if (search) {
         const haystack = `${g.away_team} ${g.home_team}`.toLowerCase();
@@ -256,7 +295,13 @@
 
     rows = rows.slice().sort((a, b) => {
       let av, bv;
-      if (sortKey === "time") {
+      if (sortKey === "date") {
+        av = a._sortMs;
+        bv = b._sortMs;
+      } else if (sortKey === "league") {
+        av = leagueText(a);
+        bv = leagueText(b);
+      } else if (sortKey === "time") {
         av = timeToMinutes(convertGameDateTime(a, zone).time);
         bv = timeToMinutes(convertGameDateTime(b, zone).time);
       } else if (sortKey === "matchup") {
@@ -268,7 +313,7 @@
       }
       if (av < bv) return -1 * sortDir;
       if (av > bv) return 1 * sortDir;
-      return a.order_index - b.order_index;
+      return a._sortMs - b._sortMs || a.order_index - b.order_index;
     });
 
     tbody.innerHTML = "";
@@ -276,7 +321,7 @@
       const { date, time } = convertGameDateTime(g, zone);
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${g.week_label}</td>
+        <td>${leagueText(g)}</td>
         <td>${date}</td>
         <td>${time}</td>
         <td class="matchup-cell">${matchupHTML(g)}</td>
@@ -299,11 +344,10 @@
     }
     guideHint.classList.add("hidden");
 
-    // Group by (converted) date, preserving the order dates first appear in
-    // (already chronological, since `games` comes off the wire in scrape order).
+    // Group by (converted) date, in chronological order.
     const byDate = new Map();
     const displayCache = new Map();
-    for (const g of rows) {
+    for (const g of rows.slice().sort((a, b) => a._sortMs - b._sortMs || a.order_index - b.order_index)) {
       const display = convertGameDateTime(g, zone);
       displayCache.set(g, display);
       if (!byDate.has(display.date)) byDate.set(display.date, []);
@@ -375,22 +419,19 @@
   const GAME_DURATION_MS = 4 * 60 * 60 * 1000;
 
   // Picks the week whose games are "current": the chronologically-earliest
-  // week whose games aren't fully over yet (i.e. its last kickoff, plus a
-  // game-length buffer, hasn't passed), so a trailing Monday-nighter or a
-  // Tuesday-morning page load still advances to the next week once the
+  // broadcast week whose games aren't fully over yet (i.e. its last start,
+  // plus a game-length buffer, hasn't passed), so a trailing Monday-nighter
+  // or a Tuesday-morning page load still advances to the next week once the
   // previous week's games have wrapped up. Falls back to the most recent
   // week once the whole season's data is in the past.
   function computeCurrentWeek() {
     const weekBounds = new Map();
     for (const g of games) {
-      const parsed = parseGameDateTime(g);
-      if (!parsed) continue;
-      const utcMs = zonedWallClockToUTC(
-        scheduleYear, parsed.month + 1, parsed.day, parsed.hours, parsed.minutes, SOURCE_ZONE
-      );
-      const bounds = weekBounds.get(g.week_label);
+      const utcMs = gameInstantMs(g);
+      if (utcMs === null) continue;
+      const bounds = weekBounds.get(g._week);
       if (!bounds) {
-        weekBounds.set(g.week_label, { start: utcMs, end: utcMs });
+        weekBounds.set(g._week, { start: utcMs, end: utcMs });
       } else {
         if (utcMs < bounds.start) bounds.start = utcMs;
         if (utcMs > bounds.end) bounds.end = utcMs;
@@ -417,12 +458,21 @@
   function populateFilters() {
     const previousValue = weekFilter.value;
     const isFirstLoad = !weekFilter.dataset.initialized;
-    const weeks = [...new Set(games.map((g) => g.week_label))];
+    const leagueWeeksByKey = new Map();
+    for (const g of games) {
+      if (!leagueWeeksByKey.has(g._week)) leagueWeeksByKey.set(g._week, []);
+      const leagueWeek = g.week_label ? leagueText(g).replace(" · ", " ") : null;
+      if (leagueWeek && !leagueWeeksByKey.get(g._week).includes(leagueWeek)) {
+        leagueWeeksByKey.get(g._week).push(leagueWeek);
+      }
+    }
+    // "" (undated games) sorts first as a string; keep it last instead.
+    const weeks = [...leagueWeeksByKey.keys()].sort((a, b) => (a === "") - (b === "") || a.localeCompare(b));
     weekFilter.innerHTML = '<option value="">All weeks</option>';
     for (const w of weeks) {
       const opt = document.createElement("option");
       opt.value = w;
-      opt.textContent = w;
+      opt.textContent = broadcastWeekLabel(w, leagueWeeksByKey.get(w));
       weekFilter.appendChild(opt);
     }
     if (isFirstLoad) {
@@ -432,6 +482,17 @@
     } else if (weeks.includes(previousValue)) {
       weekFilter.value = previousValue;
     }
+
+    const previousLeague = leagueFilter.value;
+    const leagues = [...new Set(games.map((g) => g.league))].sort();
+    leagueFilter.innerHTML = '<option value="">All leagues</option>';
+    for (const l of leagues) {
+      const opt = document.createElement("option");
+      opt.value = l;
+      opt.textContent = l;
+      leagueFilter.appendChild(opt);
+    }
+    if (leagues.includes(previousLeague)) leagueFilter.value = previousLeague;
 
     const networkSet = new Set();
     for (const g of games) {
@@ -468,8 +529,13 @@
   }
 
   function setData(data) {
-    games = data.games || [];
-    if (data.scraped_at) scheduleYear = new Date(data.scraped_at).getUTCFullYear();
+    otaNetworks = new Set(data.ota_networks || []);
+    games = (data.games || []).map((g) => {
+      const game = { ...g };
+      game._sortMs = gameSortMs(game);
+      game._week = broadcastWeekKey(game._sortMs);
+      return game;
+    });
     updatedAt.textContent = data.scraped_at
       ? `Last updated: ${new Date(data.scraped_at).toLocaleString()}`
       : "No data yet";
@@ -516,6 +582,7 @@
   });
 
   weekFilter.addEventListener("change", render);
+  leagueFilter.addEventListener("change", render);
   teamSearch.addEventListener("input", render);
   networkCheckboxes.addEventListener("change", () => {
     updateNetworkSummary();
@@ -545,19 +612,21 @@
   });
 
   networkSelectNational.addEventListener("click", () => {
-    // "National" = tiers 0/1 (major broadcast + ESPN family/streaming),
-    // excludes tier 2 (regional sports networks, local affiliates, etc).
+    // "National" = major broadcast + ESPN family/streaming; excludes local
+    // OTA stations and everything else (regional sports networks, etc).
     networkCheckboxes.querySelectorAll("input").forEach((b) => {
-      b.checked = networkTier(b.value) < 2;
+      const tier = networkTier(b.value);
+      b.checked = tier === TIER_NATIONAL_OTA || tier === TIER_NATIONAL_CABLE;
     });
     updateNetworkSummary();
     render();
   });
 
   function selectOta() {
-    // OTA (over-the-air) = tier 0 only: ABC, CBS, NBC, FOX, The CW.
+    // OTA (over-the-air) = national broadcast networks (ABC, CBS, NBC,
+    // FOX, The CW) plus local OTA stations (e.g. KSTP-TV 5).
     networkCheckboxes.querySelectorAll("input").forEach((b) => {
-      b.checked = networkTier(b.value) === 0;
+      b.checked = networkTier(b.value) <= TIER_LOCAL_OTA;
     });
     updateNetworkSummary();
   }

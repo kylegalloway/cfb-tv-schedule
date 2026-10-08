@@ -24,12 +24,20 @@ All notable changes to this project will be documented in this file.
   (next) year.
 - `/api/games` now returns the merged payload with per-source status
   (`sources`) and every source's local OTA stations (`ota_networks`).
+- The week picker now uses shared Tuesday–Monday broadcast weeks across
+  all leagues, labeled with any league's own week number (e.g. "Oct 6 –
+  Oct 12 · CFB Week 6"). The table's "Week" column is now "League", and the
+  Date column sorts chronologically.
 
 ### Added
 
 - Minnesota Wild OTA games (KSTP-TV 5 / KSTC-TV 45) from KSTP's 2026-27
   broadcast announcement, via a reusable KSTP article parser
   (`kstp_scraper.py`) that other teams' KSTP announcements can reuse.
+- League filter on the dashboard.
+- Local OTA stations declared by each source now count as OTA in the
+  network filter ("OTA only" preset, the default) and are grouped right
+  after the national broadcast networks.
 - `tzdata` dependency, so time zone conversion works in slim containers.
 
 ### Fixed

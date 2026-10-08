@@ -31,8 +31,9 @@
   </header>
 
   <div id="degraded-banner" class="banner hidden">
-    Primary source (fbschedules.com) is unavailable — showing partial data
-    from the NCAA.com fallback (mainly opening weeks and bowl season).
+    College football's primary source (fbschedules.com) is unavailable —
+    showing partial CFB data from the NCAA.com fallback (mainly opening weeks
+    and bowl season).
   </div>
 
   <section class="controls">
@@ -41,8 +42,12 @@
       <select id="week-filter"><option value="">All weeks</option></select>
     </label>
     <label>
+      League
+      <select id="league-filter"><option value="">All leagues</option></select>
+    </label>
+    <label>
       Team search
-      <input id="team-search" type="text" placeholder="e.g. Michigan" />
+      <input id="team-search" type="text" placeholder="e.g. Michigan or Wild" />
     </label>
     <div class="dropdown" id="network-filter">
       <button type="button" id="network-dropdown-btn" class="dropdown-btn">
@@ -69,7 +74,7 @@
     <table id="games-table">
       <thead>
         <tr>
-          <th data-sort="week_label">Week</th>
+          <th data-sort="league">League</th>
           <th data-sort="date">Date</th>
           <th data-sort="time" id="time-col-header">Time (ET)</th>
           <th data-sort="matchup">Matchup</th>
