@@ -1,7 +1,7 @@
 [project]
-name = "cfb-tv-schedule"
+name = "ota-sports-schedule"
 version = "0.1.0"
-description = "Scrapes and serves the college football TV schedule."
+description = "Scrapes and serves over-the-air (OTA) sports TV schedules: college football, Minnesota Wild, and more."
 authors = [
     { name = "Kyle Galloway", email = "kyle.galloway.1993@gmail.com" }
 ]

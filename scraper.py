@@ -58,7 +58,7 @@ STEALTH_FETCHER_TIMEOUT_SECONDS = 300
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36 cfb-tv-schedule-bot"
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36 ota-sports-schedule-bot"
 )
 
 # Base form fields observed on the hidden `fbschedule-frm` form on the

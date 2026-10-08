@@ -1,4 +1,4 @@
-# cfb-tv-schedule
+# ota-sports-schedule
 
 Scrapes the College Football TV schedule from
 [fbschedules.com](https://fbschedules.com/college-football-tv-schedule/) into
@@ -57,8 +57,8 @@ uv run pytest -m live
 ## Docker
 
 ```bash
-docker build -t cfb-tv-schedule .
-docker run -p 8100:8100 -v "$(pwd)/data:/app/data" cfb-tv-schedule
+docker build -t ota-sports-schedule .
+docker run -p 8100:8100 -v "$(pwd)/data:/app/data" ota-sports-schedule
 ```
 
 ## Config

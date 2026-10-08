@@ -1,5 +1,12 @@
 (() => {
-  const THEME_KEY = "cfb-tv-schedule-theme";
+  // Preference keys were renamed along with the project (it was
+  // cfb-tv-schedule before it covered more than college football); fall
+  // back to the old key so returning visitors keep their choice.
+  function readPref(key, legacyKey) {
+    return localStorage.getItem(key) ?? localStorage.getItem(legacyKey);
+  }
+
+  const THEME_KEY = "ota-sports-schedule-theme";
   const themeToggleInput = document.getElementById("theme-toggle-input");
 
   function applyTheme(theme) {
@@ -7,7 +14,7 @@
     themeToggleInput.checked = theme === "dark";
   }
 
-  applyTheme(localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light");
+  applyTheme(readPref(THEME_KEY, "cfb-tv-schedule-theme") === "dark" ? "dark" : "light");
 
   themeToggleInput.addEventListener("change", () => {
     const next = themeToggleInput.checked ? "dark" : "light";
@@ -19,7 +26,7 @@
   // see them converted to their own zone; conversion is DST-aware (uses
   // the actual offset for each game's date, not a fixed ET/CT-style delta).
   const SOURCE_ZONE = "America/New_York";
-  const TZ_KEY = "cfb-tv-schedule-timezone";
+  const TZ_KEY = "ota-sports-schedule-timezone";
   const timezoneSelect = document.getElementById("timezone-select");
   const timeColHeader = document.getElementById("time-col-header");
   let scheduleYear = new Date().getFullYear();
@@ -127,7 +134,7 @@
     timeColHeader.textContent = `Time (${zoneAbbrev(zone, new Date())})`;
   }
 
-  timezoneSelect.value = localStorage.getItem(TZ_KEY) || "auto";
+  timezoneSelect.value = readPref(TZ_KEY, "cfb-tv-schedule-timezone") || "auto";
   updateTimeColumnHeader();
 
   timezoneSelect.addEventListener("change", () => {

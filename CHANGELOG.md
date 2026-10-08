@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the project from `cfb-tv-schedule` to `ota-sports-schedule`:
+  it now covers over-the-air sports schedules in general, not just college
+  football. Dashboard title, package name, Docker image name in the docs,
+  and `localStorage` preference keys changed (old keys are still read, so
+  saved theme/time zone choices carry over).
+
 ### Fixed
 
 - Auto-selected "current week" now advances once a week's games have
