@@ -422,3 +422,20 @@ th.guide-channel-head {
 .guide-game + .guide-game {
   margin-top: 0.3rem;
 }
+
+footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+footer ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
+footer a {
+  color: inherit;
+}

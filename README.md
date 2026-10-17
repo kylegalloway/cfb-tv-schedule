@@ -39,6 +39,7 @@ fixed format. `kstp_scraper.KstpBroadcastArticle` parses any team's article.
    `logos.PROVIDERS`, add a logo provider for the league.
 8. If the source has no scores and its league is not in
    `scores.PROVIDERS`, add a score provider for the league.
+9. Add a link to the source in the footer of `static/index.html`.
 
 **Scores:** finished CFB games get their score and result from the
 fbschedules.com scrape. For a finished game, the site lists the winner

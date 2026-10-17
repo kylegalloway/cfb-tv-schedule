@@ -57,6 +57,7 @@ All notable changes to this project will be documented in this file.
 - Finished games show their score and result ("Final", "Final/OT",
   "Canceled") in the list and TV guide, with the winner's score in bold.
   Scores update on each refresh, so in-progress games show none.
+- Footer with links to every source of schedule and score data.
 
 ### Fixed
 
