@@ -267,13 +267,23 @@
     return `<img class="team-logo${leagueClass}" src="${url}" alt="${teamName} logo" loading="lazy" onerror="this.remove()" />`;
   }
 
+  // A finished game's score, bold for the winner. Upcoming and canceled
+  // games have no scores.
+  function scoreHTML(score, otherScore) {
+    if (score == null) return "";
+    const won = otherScore != null && score > otherScore;
+    return ` <span class="score${won ? " score--won" : ""}">${score}</span>`;
+  }
+
   function matchupHTML(g) {
     const away = (g.away_rank ? `#${g.away_rank} ` : "") + g.away_team;
     const home = (g.home_rank ? `#${g.home_rank} ` : "") + g.home_team;
     return (
       `${logoImg(g.away_logo, g.away_team, g.league)}` +
-      `<span class="team-name">${away}</span> ${g.separator} <span class="team-name">${home}</span>` +
-      `${logoImg(g.home_logo, g.home_team, g.league)}`
+      `<span class="team-name">${away}</span>${scoreHTML(g.away_score, g.home_score)} ${g.separator} ` +
+      `<span class="team-name">${home}</span>${scoreHTML(g.home_score, g.away_score)}` +
+      `${logoImg(g.home_logo, g.home_team, g.league)}` +
+      (g.status ? ` <span class="game-status">${g.status}</span>` : "")
     );
   }
 

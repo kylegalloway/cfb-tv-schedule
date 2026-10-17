@@ -54,6 +54,9 @@ All notable changes to this project will be documented in this file.
   score provider (`scores.py`). NHL results come from the NHL's public
   API and are cached in `data/scores/nhl.json`. A refresh looks up only
   days with a finished game that has no result yet.
+- Finished games show their score and result ("Final", "Final/OT",
+  "Canceled") in the list and TV guide, with the winner's score in bold.
+  Scores update on each refresh, so in-progress games show none.
 
 ### Fixed
 

@@ -310,6 +310,26 @@ th:hover {
   white-space: nowrap;
 }
 
+.score {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.score--won {
+  font-weight: 700;
+  opacity: 1;
+}
+
+.game-status {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
 .view-toggle {
   display: flex;
   gap: 0.3rem;
