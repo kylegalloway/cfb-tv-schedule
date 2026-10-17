@@ -110,6 +110,11 @@ class Game:
     start_utc: str | None = None
     start_date: str | None = None
     time_zone: str | None = None
+    # Result, once the game is over: "Final", "Final/OT", "Canceled".
+    # Scores stay None for games not played yet (or canceled).
+    status: str | None = None
+    away_score: int | None = None
+    home_score: int | None = None
 
     def __post_init__(self):
         if not self.networks:
@@ -186,6 +191,7 @@ def parse_week_response(html: str, week_label: str, week_value: str) -> list[Gam
         return []
 
     logo_map = _parse_logo_map(soup)
+    mobile_order = _parse_mobile_order(soup)
 
     games: list[Game] = []
     current_date = ""
@@ -197,7 +203,7 @@ def parse_week_response(html: str, week_label: str, week_value: str) -> list[Gam
         if "bowl-year-bg" in classes:
             current_date = child.get_text(strip=True)
         elif name == "table" and "spring" in classes:
-            games.extend(_parse_table(child, week_label, week_value, current_date, logo_map))
+            games.extend(_parse_table(child, week_label, week_value, current_date, logo_map, mobile_order))
 
     return games
 
@@ -213,13 +219,57 @@ def _parse_logo_map(soup: BeautifulSoup) -> dict[str, str]:
     return {img["alt"]: img["src"] for img in mobile.find_all("img", alt=True, src=True)}
 
 
+def _game_id(td) -> str | None:
+    """Each game's matchup cell carries its fbschedules.com game ID as a
+    bare numeric class (`<td class="spring1 226550">`), the same in both the
+    desktop and mobile layouts."""
+    return next((c for c in td.get("class") or [] if c.isdigit()), None)
+
+
+def _parse_mobile_order(soup: BeautifulSoup) -> dict[str, tuple[str, ...]]:
+    """game ID -> team names in (away, home) order, from the mobile layout.
+
+    Once a game is final, the desktop layout rewrites its row as
+    "Winner 75, Loser 24" with no "at"/"vs", which loses who was home. The
+    mobile layout keeps listing the teams away-then-home, one
+    `.spring-row` each (team name as the row's own text, after the logo
+    `<img>` and any rank span)."""
+    mobile = soup.select_one(".mobile-alt-schedule")
+    if mobile is None:
+        return {}
+    order = {}
+    for td in mobile.select("td.spring1"):
+        game_id = _game_id(td)
+        if game_id is None:
+            continue
+        rows = td.find_all("div", class_="spring-row", recursive=False)
+        order[game_id] = tuple("".join(row.find_all(string=True, recursive=False)).strip() for row in rows)
+    return order
+
+
+def _score_after(span) -> int | None:
+    """A final's score is the bare text right after the team's span:
+    `<span>Troy</span> 55, <span>Southern Miss</span> 34`."""
+    text = span.next_sibling
+    match = re.search(r"\d+", text) if isinstance(text, str) else None
+    return int(match.group()) if match else None
+
+
 def fetch_week(session: requests.Session, week_label: str, week_value: str, form_fields: dict[str, str]) -> list[Game]:
     html = fetch_week_ajax(session, week_value, form_fields)
     return parse_week_response(html, week_label, week_value)
 
 
-def _parse_table(table, week_label: str, week_value: str, date: str, logo_map: dict[str, str] | None = None) -> list[Game]:
+def _parse_table(
+    table,
+    week_label: str,
+    week_value: str,
+    date: str,
+    logo_map: dict[str, str] | None = None,
+    mobile_order: dict[str, tuple[str, ...]] | None = None,
+) -> list[Game]:
     logo_map = logo_map or {}
+    mobile_order = mobile_order or {}
     games = []
     for row in table.select("tbody tr"):
         tds = row.find_all("td")
@@ -260,12 +310,30 @@ def _parse_table(table, week_label: str, week_value: str, date: str, logo_map: d
                     name = name.replace(rank, "", 1).strip()
             return name, rank
 
+        away_score = home_score = None
         if len(team_spans) >= 2:
             away_team, away_rank = _split_team(team_spans[0])
             home_team, home_rank = _split_team(team_spans[1])
+            away_score, home_score = _score_after(team_spans[0]), _score_after(team_spans[1])
 
         if not away_team or not home_team:
             continue
+
+        # The tickets column holds the result instead of a "Buy Tickets"
+        # link once a game is over or called off.
+        status = None
+        if len(tds) > 3 and tds[3].find("a") is None:
+            status = tds[3].get_text(strip=True) or None
+
+        # A final lists the winner first with no separator. Put the teams
+        # back in away/home order from the mobile layout. Either name is
+        # enough: the mobile layout sometimes leaves one blank.
+        order = mobile_order.get(_game_id(tds[0])) or ()
+        if not separator and len(order) == 2 and (order[0] == home_team or order[1] == away_team):
+            away_team, away_rank, away_score, home_team, home_rank, home_score = (
+                home_team, home_rank, home_score, away_team, away_rank, away_score)
+        if not separator and neutral_site:
+            separator = "vs"
 
         time_text = tds[1].get_text(strip=True)
         network_text = tds[2].get_text(strip=True)
@@ -285,6 +353,9 @@ def _parse_table(table, week_label: str, week_value: str, date: str, logo_map: d
                 neutral_site=neutral_site,
                 away_logo=logo_map.get(away_team),
                 home_logo=logo_map.get(home_team),
+                status=status,
+                away_score=away_score,
+                home_score=home_score,
             )
         )
     return games

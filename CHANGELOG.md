@@ -53,6 +53,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Finished CFB games no longer show the winner as the away team. Once a
+  game is final, fbschedules.com rewrites its row as "Winner 55, Loser
+  34" with no "at", and the parser read that as "Winner at Loser". The
+  away/home order now comes from the page's mobile layout, which keeps
+  it.
 - Auto-selected "current week" now advances once a week's games have
   actually wrapped up, instead of sitting on that week indefinitely.
   Previously `computeCurrentWeek()` in `static/app.js` only looked at each

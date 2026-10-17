@@ -114,3 +114,57 @@ def test_game_populates_networks_list_from_raw_network_on_construction():
         network="MNMT/FloSports",
     )
     assert g.networks == ["MNMT", "FloSports"]
+
+
+# Trimmed from Week 6 after it was played (captured 2026-10-17). Finished
+# rows read "Winner 55, Loser 34" with the result in the tickets column.
+def _final_week_games():
+    payload = json.loads((FIXTURES / "fbschedules_final_week_ajax.json").read_text())
+    return {g.home_team: g for g in parse_week_response(payload["html"], "Week 6", "week-13702")}
+
+
+def test_final_where_home_team_won_keeps_away_home_order_not_winner_first():
+    """Regression test: a final lists the winner first with no "at", which
+    used to make every home winner show as the away team."""
+    g = _final_week_games()["Troy"]
+    assert (g.away_team, g.away_score) == ("Southern Miss", 34)
+    assert (g.home_team, g.home_score) == ("Troy", 55)
+    assert g.separator == "at"
+    assert g.status == "Final"
+    assert g.home_logo and g.away_logo
+
+
+def test_final_where_away_team_won():
+    g = _final_week_games()["Kennesaw State"]
+    assert (g.away_team, g.away_score) == ("Jacksonville State", 27)
+    assert (g.home_team, g.home_score) == ("Kennesaw State", 26)
+    assert g.separator == "at"
+
+
+def test_final_keeps_rank_with_its_team_and_reports_overtime():
+    games = _final_week_games()
+    iowa = games["Washington"]
+    assert (iowa.away_team, iowa.away_rank, iowa.away_score) == ("Iowa", "20", 41)
+    assert (iowa.home_rank, iowa.home_score) == (None, 24)
+    assert games["San Jose State"].status == "Final/OT"
+
+
+def test_neutral_site_final_gets_vs_separator():
+    g = next(g for g in _final_week_games().values() if g.neutral_site)
+    assert g.separator == "vs"
+    assert g.neutral_site == "(in Dallas, TX)"
+    assert {(g.away_team, g.away_score), (g.home_team, g.home_score)} == {("Oklahoma", 27), ("Texas", 24)}
+
+
+def test_canceled_game_has_status_but_no_scores():
+    g = _final_week_games()["West Florida"]
+    assert g.away_team == "Northeastern State"
+    assert g.status == "Canceled"
+    assert g.away_score is None and g.home_score is None
+
+
+def test_upcoming_game_has_no_result():
+    payload = json.loads((FIXTURES / "fbschedules_week_ajax.json").read_text())
+    for g in parse_week_response(payload["html"], "Week 2", "week-13698"):
+        assert g.status is None
+        assert g.away_score is None and g.home_score is None
