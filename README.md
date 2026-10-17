@@ -37,6 +37,15 @@ fixed format. `kstp_scraper.KstpBroadcastArticle` parses any team's article.
    add the station with its digital channel.
 7. If the source has no team logos and its league is not in
    `logos.PROVIDERS`, add a logo provider for the league.
+8. If the source has no scores and its league is not in
+   `scores.PROVIDERS`, add a score provider for the league.
+
+**Scores:** finished CFB games get their score and result from the
+fbschedules.com scrape. For a finished game, the site lists the winner
+first, so the scraper takes the away/home order from the page's mobile
+layout. Other leagues get results from a provider in `scores.py` (the
+NHL's public API for NHL), cached in `data/scores/<league>.json`. Scores
+update only on a refresh, so in-progress games show no score.
 
 **Logos:** CFB logos come with the fbschedules.com scrape. Other leagues
 get logos from a provider in `logos.py` (the NHL's public API for NHL).

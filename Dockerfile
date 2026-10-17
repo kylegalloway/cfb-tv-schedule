@@ -23,7 +23,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-COPY scraper.py app.py networks.py ncaa_scraper.py kstp_scraper.py schedule.py stations.py logos.py fetch_fbschedules.py fetch_logos.py ./
+COPY scraper.py app.py networks.py ncaa_scraper.py kstp_scraper.py schedule.py stations.py logos.py scores.py fetch_fbschedules.py fetch_logos.py ./
 COPY static/ ./static/
 
 ENV PORT=8100

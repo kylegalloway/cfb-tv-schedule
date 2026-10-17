@@ -15,6 +15,7 @@ import pytest
 import logos
 import ncaa_scraper
 import schedule
+import scores
 import scraper
 import stations
 
@@ -77,3 +78,14 @@ def test_nhl_logo_provider_covers_every_wild_opponent():
 
     teams = {g.away_team for g in games} | {g.home_team for g in games}
     assert {logos.team_slug(t) for t in teams} <= urls
+
+
+@pytest.mark.live
+def test_nhl_score_provider_finds_wild_season_opener_result():
+    # Wild vs. Bruins, Oct. 3, 2026 (7 p.m. Central) — the first KSTP game.
+    game = {"league": "NHL", "away_team": "Boston Bruins", "home_team": "Minnesota Wild",
+            "start_utc": "2026-10-04T00:00:00+00:00", "start_date": "2026-10-03"}
+    result = scores._find_result(game, scores.PROVIDERS["NHL"].results("2026-10-03"))
+
+    assert result is not None, "NHL score API no longer lists the game — response shape may have changed"
+    assert (result["away_score"], result["home_score"], result["status"]) == (1, 4, "Final")

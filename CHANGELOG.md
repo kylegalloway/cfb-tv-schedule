@@ -50,6 +50,10 @@ All notable changes to this project will be documented in this file.
   order. Anything with a channel counts as OTA for the "OTA only" preset
   (the default).
 - `tzdata` dependency, so time zone conversion works in slim containers.
+- Final scores for leagues whose source has none, from a per-league
+  score provider (`scores.py`). NHL results come from the NHL's public
+  API and are cached in `data/scores/nhl.json`. A refresh looks up only
+  days with a finished game that has no result yet.
 
 ### Fixed
 
