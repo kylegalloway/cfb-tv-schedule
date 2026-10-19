@@ -81,6 +81,12 @@ All notable changes to this project will be documented in this file.
 
 - `urllib3` 2.7.0 → 2.8.0 in `uv.lock`, fixing CVE-2026-97687 and
   CVE-2026-97689 (both HIGH) found by the homelab's Trivy scan.
+- The image now runs `apt-get upgrade` right after `FROM`. The upstream
+  `uv:python3.12-bookworm-slim` tag lags behind bookworm-security, which
+  left fixable CRITICAL/HIGH CVEs in openssl, gnutls, krb5, perl, pcre2
+  and libcap. The layer sits before the stealth-fetcher layer, so
+  playwright's packages install on top of patched ones. Rebuild with
+  `--no-cache` to pick up newer Debian fixes.
 
 ### Added
 

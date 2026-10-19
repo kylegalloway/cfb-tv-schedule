@@ -1,5 +1,15 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
+# The uv base tag isn't rebuilt often, so its Debian packages lag behind
+# bookworm-security (Trivy, 2026-10-19: openssl, gnutls, krb5, perl, pcre2,
+# libcap with fixes available). Patch them here, before the slow
+# stealth-fetcher layer, so playwright's apt-get installs on top of current
+# packages too. The layer cache keeps the old upgrade, so rebuild with
+# --no-cache to pick up newer fixes (editing this comment doesn't bust it).
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 # ── stealth-fetcher: sibling project (github.com/kylegalloway/stealth-fetcher),
 # bundled in so scraper.py's Cloudflare-bypass fallback (_scrape_via_stealth_fetcher)
 # works from inside the container instead of just failing closed. Pulled in
