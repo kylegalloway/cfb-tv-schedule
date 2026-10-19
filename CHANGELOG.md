@@ -61,6 +61,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- The per-league scores cache (`data/scores/<league>.json`) is now
+  git-ignored like the other scraped caches. `data/*.json` only matched
+  top-level files, so `data/scores/nhl.json` kept showing up as untracked.
 - Finished CFB games no longer show the winner as the away team. Once a
   game is final, fbschedules.com rewrites its row as "Winner 55, Loser
   34" with no "at", and the parser read that as "Winner at Loser". The

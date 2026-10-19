@@ -12,6 +12,7 @@ wheels/
 # Scraped data cache
 data/*.json
 data/logos/
+data/scores/
 
 # Test cache
 .pytest_cache/
