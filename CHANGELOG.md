@@ -77,6 +77,11 @@ All notable changes to this project will be documented in this file.
   its last game plus a 4-hour buffer has passed, and picks the earliest
   week that isn't over yet.
 
+### Security
+
+- `urllib3` 2.7.0 → 2.8.0 in `uv.lock`, fixing CVE-2026-97687 and
+  CVE-2026-97689 (both HIGH) found by the homelab's Trivy scan.
+
 ### Added
 
 - Time zone picker for the schedule table: auto-detect (default) plus
