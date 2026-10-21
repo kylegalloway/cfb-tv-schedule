@@ -102,6 +102,10 @@ All notable changes to this project will be documented in this file.
 - `UV_NO_CACHE=1`: the ~400 MB uv download cache no longer ships in the
   image. Together with the single Python, the image went from 8.5 GB to
   5.6 GB as `docker images` reports it.
+- The bundled stealth-fetcher now pins camoufox's fingerprint OS to
+  Windows (it used to pick one at random per session), so the image keeps
+  only the spoofing-font groups Windows reads. The macOS- and Linux-only
+  groups (~1 GB) are deleted in the same layer that fetches them.
 - `urllib3` 2.7.0 → 2.8.0 in `uv.lock`, fixing CVE-2026-97687 and
   CVE-2026-97689 (both HIGH) found by the homelab's Trivy scan.
 - The image now runs `apt-get upgrade` right after `FROM`. The upstream

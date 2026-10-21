@@ -35,9 +35,21 @@ RUN apt-get update \
 WORKDIR /stealth-fetcher
 COPY --from=stealth-fetcher pyproject.toml uv.lock ./
 COPY --from=stealth-fetcher stealth_fetcher/ ./stealth_fetcher/
+#
+# stealth-fetcher pins camoufox's fingerprint OS to Windows
+# (FINGERPRINT_OS in stealth_fetcher/engines.py), so only the font groups
+# Windows reads are kept. camoufox stores each font once, in a directory
+# named for the OSes that use it (L, M, W, LM, ...), lists which ones each
+# OS reads in fonts/groups.json, and skips missing ones at launch. Dropping
+# the macOS/Linux-only groups saves ~1 GB. Change both together.
 RUN uv sync --frozen --no-dev \
     && uv run playwright install-deps firefox \
     && uv run camoufox fetch \
+    && uv run python -c 'import json, pathlib, shutil; \
+fonts = next(pathlib.Path.home().glob(".cache/camoufox/browsers/*/*/fonts")); \
+keep = set(json.loads((fonts / "groups.json").read_text())["readBy"]["win"]); \
+[shutil.rmtree(d) for d in fonts.iterdir() if d.is_dir() and d.name not in keep]; \
+print("camoufox fonts kept:", sorted(keep))' \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
