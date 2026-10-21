@@ -82,6 +82,11 @@ All notable changes to this project will be documented in this file.
 
 ### Security
 
+- `uv.lock` refreshed (certifi, idna, werkzeug, tzdata and others), and
+  the bundled stealth-fetcher now locks camoufox 0.5.8 and playwright
+  1.62. camoufox no longer depends on aiohttp, which removes its two HIGH
+  CVEs (CVE-2026-111064, GHSA-2g87-pp6c-29x5). The camoufox browser layer
+  grew by about 1 GB (spoofing fonts for macOS, Windows and Linux).
 - `urllib3` 2.7.0 → 2.8.0 in `uv.lock`, fixing CVE-2026-97687 and
   CVE-2026-97689 (both HIGH) found by the homelab's Trivy scan.
 - The image now runs `apt-get upgrade` right after `FROM`. The upstream
