@@ -82,11 +82,26 @@ All notable changes to this project will be documented in this file.
 
 ### Security
 
+- Base image moved from `uv:python3.12-bookworm-slim` to
+  `uv:python3.14-trixie-slim`. Three of the image's four CRITICAL CVEs
+  (zlib, sqlite, glib) were `will_not_fix` / `fix_deferred` on bookworm
+  and are fixed on trixie. libxml2 is still unfixed upstream.
+- The image no longer contains a second, uv-downloaded Python. The app
+  needs 3.14, the old base had 3.12, and `.python-version` wasn't copied
+  in, so uv fetched CPython 3.15 at build time. The app and the bundled
+  stealth-fetcher now both run on the base image's 3.14, and
+  `UV_PYTHON_DOWNLOADS=never` makes any mismatch fail the build.
+- The image removes the base image's system-wide pip and CPython's bundled
+  `ensurepip` wheel. pip's vendored urllib3, msgpack and setuptools carried
+  four HIGH CVEs, and uv (not pip) manages both venvs.
 - `uv.lock` refreshed (certifi, idna, werkzeug, tzdata and others), and
   the bundled stealth-fetcher now locks camoufox 0.5.8 and playwright
   1.62. camoufox no longer depends on aiohttp, which removes its two HIGH
   CVEs (CVE-2026-111064, GHSA-2g87-pp6c-29x5). The camoufox browser layer
   grew by about 1 GB (spoofing fonts for macOS, Windows and Linux).
+- `UV_NO_CACHE=1`: the ~400 MB uv download cache no longer ships in the
+  image. Together with the single Python, the image went from 8.5 GB to
+  5.6 GB as `docker images` reports it.
 - `urllib3` 2.7.0 → 2.8.0 in `uv.lock`, fixing CVE-2026-97687 and
   CVE-2026-97689 (both HIGH) found by the homelab's Trivy scan.
 - The image now runs `apt-get upgrade` right after `FROM`. The upstream
