@@ -34,6 +34,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `cfb-tv-schedule-release` agent skill: update dependencies, test, deploy to
+  the media VM through the homelab repo's task, and verify the live site
 - Minnesota Wild OTA games (KSTP-TV 5 / KSTC-TV 45) from KSTP's 2026-27
   broadcast announcement, via a reusable KSTP article parser
   (`kstp_scraper.py`) that other teams' KSTP announcements can reuse.
