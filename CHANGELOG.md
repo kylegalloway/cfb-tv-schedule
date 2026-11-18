@@ -31,6 +31,9 @@ All notable changes to this project will be documented in this file.
 - The Dockerfile builds the bundled stealth-fetcher (camoufox/Firefox,
   apt-get) before the app's own files, so a code or frontend change no
   longer rebuilds it. A CSS-only rebuild went from 10+ minutes to seconds.
+- `uv.lock` refreshed again: certifi 2026.10.23, click 8.5.1, pytest
+  9.2.0, soupsieve 4.1.1 (a major-version jump that beautifulsoup4 pulls
+  in), tzdata 2026.6 and tzlocal 5.4.5.
 
 ### Added
 
